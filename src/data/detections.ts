@@ -53,7 +53,11 @@ const data = raw as DetectionsFile;
 export const detectionSources = data.sources;
 export const rules = data.rules;
 export const skills = data.skills;
-export const ruleById: Record<string, DetectionRule> = Object.fromEntries(rules.map((r) => [r.id, r]));
+// Null prototype: ids from a URL such as "toString" find nothing instead of an inherited method.
+export const ruleById: Record<string, DetectionRule> = Object.assign(
+  Object.create(null),
+  Object.fromEntries(rules.map((r) => [r.id, r])),
+);
 /** Skill by name. A Map, because names come from the URL and /skills/toString must miss. */
 export const skillByName = new Map<string, BlueSkill>(skills.map((s) => [s.name, s]));
 

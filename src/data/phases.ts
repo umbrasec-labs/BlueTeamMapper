@@ -175,4 +175,8 @@ export const phaseLinks: PhaseLink[] = [
   { from: 'triage', to: 'visibility', label: 'Visibility gaps', kind: 'feedback' },
 ];
 
-export const phaseById = Object.fromEntries(phases.map((p) => [p.id, p])) as Record<PhaseId, Phase>;
+// Null prototype: ids from a URL such as "toString" find nothing instead of an inherited method.
+export const phaseById: Record<PhaseId, Phase> = Object.assign(
+  Object.create(null),
+  Object.fromEntries(phases.map((p) => [p.id, p])),
+);

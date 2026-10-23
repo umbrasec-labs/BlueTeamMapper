@@ -57,3 +57,11 @@ export const useCoverage = create<CoverageState>()(
     { name: 'btm-coverage-v1', storage: safeStorage, version: 1 },
   ),
 );
+
+// Another tab saved: load its assessment here too. Rehydrating sets state without writing it
+// back, so this cannot loop between tabs. A null key means that tab cleared all of storage.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'btm-coverage-v1' || e.key === null) void useCoverage.persist.rehydrate();
+  });
+}

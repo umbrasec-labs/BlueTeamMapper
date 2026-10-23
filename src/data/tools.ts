@@ -39,6 +39,8 @@ export const tools: Tool[] = (raw as RawTool[]).map((t) => ({
   category: categoryIdByHeading[t.category] ?? slug(t.category),
 }));
 
-export const toolCategoryById: Record<string, ToolCategory> = Object.fromEntries(
-  toolCategories.map((c) => [c.id, c]),
+// Null prototype: ids from a URL such as "toString" find nothing instead of an inherited method.
+export const toolCategoryById: Record<string, ToolCategory> = Object.assign(
+  Object.create(null),
+  Object.fromEntries(toolCategories.map((c) => [c.id, c])),
 );

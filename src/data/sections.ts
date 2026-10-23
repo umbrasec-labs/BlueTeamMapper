@@ -4,8 +4,10 @@ import raw from './legacy/sections.json';
 /** All v3 sections, in page order. Content is extracted by scripts/extract_legacy.py. */
 export const sections = raw as Section[];
 
-export const sectionById: Record<string, Section> = Object.fromEntries(
-  sections.map((s) => [s.id, s]),
+// Null prototype: ids from a URL such as "toString" find nothing instead of an inherited method.
+export const sectionById: Record<string, Section> = Object.assign(
+  Object.create(null),
+  Object.fromEntries(sections.map((s) => [s.id, s])),
 );
 
 /** Stable id for a card, used for deep links (#card-...) and search jumps. */
