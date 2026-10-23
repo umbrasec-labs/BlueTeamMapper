@@ -1,0 +1,510 @@
+[
+  {
+    "category": "SIEM / LOG MANAGEMENT",
+    "label": "Splunk / Splunk ES / Splunk SOAR",
+    "names": [
+      "Splunk",
+      "Splunk ES",
+      "Splunk SOAR"
+    ],
+    "description": "Enterprise SIEM, security analytics, and SOAR orchestration"
+  },
+  {
+    "category": "SIEM / LOG MANAGEMENT",
+    "label": "Microsoft Sentinel / Defender XDR",
+    "names": [
+      "Microsoft Sentinel",
+      "Defender XDR"
+    ],
+    "description": "Cloud-native SIEM with deep M365/Azure integration and KQL"
+  },
+  {
+    "category": "SIEM / LOG MANAGEMENT",
+    "label": "Elastic Security / ELK Stack",
+    "names": [
+      "Elastic Security",
+      "ELK Stack"
+    ],
+    "description": "Open-source SIEM with ML anomaly detection and EQL rules"
+  },
+  {
+    "category": "SIEM / LOG MANAGEMENT",
+    "label": "IBM QRadar / LogRhythm",
+    "names": [
+      "IBM QRadar",
+      "LogRhythm"
+    ],
+    "description": "Enterprise SIEM platforms with UBA modules"
+  },
+  {
+    "category": "SIEM / LOG MANAGEMENT",
+    "label": "Graylog / OpenSearch Security",
+    "names": [
+      "Graylog",
+      "OpenSearch Security"
+    ],
+    "description": "Open-source log management alternatives (lower cost)"
+  },
+  {
+    "category": "EDR / ENDPOINT DETECTION",
+    "label": "Microsoft Defender for Endpoint (MDE)",
+    "names": [
+      "Microsoft Defender for Endpoint (MDE)"
+    ],
+    "description": "Native Windows EDR with ASR rules and Advanced Hunting KQL"
+  },
+  {
+    "category": "EDR / ENDPOINT DETECTION",
+    "label": "CrowdStrike Falcon",
+    "names": [
+      "CrowdStrike Falcon"
+    ],
+    "description": "Best-in-class behavioral EDR with custom IOA rules"
+  },
+  {
+    "category": "EDR / ENDPOINT DETECTION",
+    "label": "SentinelOne Singularity",
+    "names": [
+      "SentinelOne Singularity"
+    ],
+    "description": "Autonomous EDR with ransomware VSS rollback capability"
+  },
+  {
+    "category": "EDR / ENDPOINT DETECTION",
+    "label": "Cortex XDR (Palo Alto)",
+    "names": [
+      "Cortex XDR"
+    ],
+    "description": "XDR platform with strong network and cloud integration"
+  },
+  {
+    "category": "EDR / ENDPOINT DETECTION",
+    "label": "Velociraptor",
+    "names": [
+      "Velociraptor"
+    ],
+    "description": "Open-source DFIR hunt platform - VQL-based, scales to 10k+ hosts"
+  },
+  {
+    "category": "EDR / ENDPOINT DETECTION",
+    "label": "Sysmon + Sysmon Modular",
+    "names": [
+      "Sysmon + Sysmon Modular"
+    ],
+    "description": "Free telemetry enhancement - 25+ event types including DNS and pipes"
+  },
+  {
+    "category": "NETWORK DETECTION & RESPONSE",
+    "label": "Zeek (Bro)",
+    "names": [
+      "Zeek (Bro)"
+    ],
+    "description": "Network security monitor with rich protocol analyzers"
+  },
+  {
+    "category": "NETWORK DETECTION & RESPONSE",
+    "label": "Suricata",
+    "names": [
+      "Suricata"
+    ],
+    "description": "IDS/IPS with Emerging Threats Open ruleset (40k+ signatures)"
+  },
+  {
+    "category": "NETWORK DETECTION & RESPONSE",
+    "label": "Arkime (Moloch)",
+    "names": [
+      "Arkime (Moloch)"
+    ],
+    "description": "Full PCAP capture, indexing, and retrospective analysis"
+  },
+  {
+    "category": "NETWORK DETECTION & RESPONSE",
+    "label": "RITA / AC-Hunter",
+    "names": [
+      "RITA",
+      "AC-Hunter"
+    ],
+    "description": "Automated C2 beaconing detection via Zeek conn.log analysis"
+  },
+  {
+    "category": "NETWORK DETECTION & RESPONSE",
+    "label": "Security Onion",
+    "names": [
+      "Security Onion"
+    ],
+    "description": "NSM distribution bundling Zeek + Suricata + Elastic + RITA"
+  },
+  {
+    "category": "NETWORK DETECTION & RESPONSE",
+    "label": "ntopng / NetFlow Analyzer",
+    "names": [
+      "ntopng",
+      "NetFlow Analyzer"
+    ],
+    "description": "NetFlow/IPFIX visualization and east-west baseline analysis"
+  },
+  {
+    "category": "IDENTITY & ACCESS",
+    "label": "Microsoft Entra ID Protection",
+    "names": [
+      "Microsoft Entra ID Protection"
+    ],
+    "description": "Risk-based identity protection - impossible travel, anomalous tokens"
+  },
+  {
+    "category": "IDENTITY & ACCESS",
+    "label": "CyberArk / BeyondTrust / Delinea",
+    "names": [
+      "CyberArk",
+      "BeyondTrust",
+      "Delinea"
+    ],
+    "description": "Privileged Access Management (PAM) with session recording"
+  },
+  {
+    "category": "IDENTITY & ACCESS",
+    "label": "Microsoft LAPS",
+    "names": [
+      "Microsoft LAPS"
+    ],
+    "description": "Unique local admin passwords per machine - built into Windows"
+  },
+  {
+    "category": "IDENTITY & ACCESS",
+    "label": "PingCastle / Purple Knight",
+    "names": [
+      "PingCastle",
+      "Purple Knight"
+    ],
+    "description": "Active Directory security assessment and scoring"
+  },
+  {
+    "category": "IDENTITY & ACCESS",
+    "label": "Locksmith",
+    "names": [
+      "Locksmith"
+    ],
+    "description": "ADCS vulnerability identification and remediation guidance"
+  },
+  {
+    "category": "IDENTITY & ACCESS",
+    "label": "BloodHound CE / Adalanche",
+    "names": [
+      "BloodHound CE",
+      "Adalanche"
+    ],
+    "description": "AD attack path analysis from defender perspective"
+  },
+  {
+    "category": "THREAT INTELLIGENCE",
+    "label": "MISP / OpenCTI",
+    "names": [
+      "MISP",
+      "OpenCTI"
+    ],
+    "description": "Open-source TIP with STIX/TAXII and ATT&CK integration"
+  },
+  {
+    "category": "THREAT INTELLIGENCE",
+    "label": "Recorded Future / ThreatConnect",
+    "names": [
+      "Recorded Future",
+      "ThreatConnect"
+    ],
+    "description": "Commercial CTI platforms with dark web and technical intelligence"
+  },
+  {
+    "category": "THREAT INTELLIGENCE",
+    "label": "VirusTotal / ANY.RUN",
+    "names": [
+      "VirusTotal",
+      "ANY.RUN"
+    ],
+    "description": "Online malware analysis, sandbox detonation, and IOC correlation"
+  },
+  {
+    "category": "THREAT INTELLIGENCE",
+    "label": "CAPA / FLOSS",
+    "names": [
+      "CAPA",
+      "FLOSS"
+    ],
+    "description": "Capability extraction and obfuscated string deobfuscation"
+  },
+  {
+    "category": "THREAT INTELLIGENCE",
+    "label": "Ghidra / IDA Pro",
+    "names": [
+      "Ghidra",
+      "IDA Pro"
+    ],
+    "description": "Reverse engineering and binary analysis for deep malware research"
+  },
+  {
+    "category": "THREAT INTELLIGENCE",
+    "label": "CAPE Sandbox / Cuckoo",
+    "names": [
+      "CAPE Sandbox",
+      "Cuckoo"
+    ],
+    "description": "Self-hosted malware detonation for privacy-sensitive samples"
+  },
+  {
+    "category": "THREAT HUNTING",
+    "label": "Atomic Red Team",
+    "names": [
+      "Atomic Red Team"
+    ],
+    "description": "MITRE ATT&CK-mapped technique tests for detection validation"
+  },
+  {
+    "category": "THREAT HUNTING",
+    "label": "Caldera",
+    "names": [
+      "Caldera"
+    ],
+    "description": "MITRE's automated adversary emulation for chained attack scenarios"
+  },
+  {
+    "category": "THREAT HUNTING",
+    "label": "Stratus Red Team",
+    "names": [
+      "Stratus Red Team"
+    ],
+    "description": "Cloud-specific ATT&CK technique tests for AWS/Azure/GCP"
+  },
+  {
+    "category": "THREAT HUNTING",
+    "label": "Hayabusa",
+    "names": [
+      "Hayabusa"
+    ],
+    "description": "Fast Windows event log threat hunting with Sigma rule support"
+  },
+  {
+    "category": "THREAT HUNTING",
+    "label": "ThreatHunter-Playbook (OTRF)",
+    "names": [
+      "ThreatHunter-Playbook"
+    ],
+    "description": "Community hunt playbook library with query templates"
+  },
+  {
+    "category": "FORENSICS & INCIDENT RESPONSE",
+    "label": "Volatility 3",
+    "names": [
+      "Volatility 3"
+    ],
+    "description": "Memory forensics - process analysis, network connections, malfind"
+  },
+  {
+    "category": "FORENSICS & INCIDENT RESPONSE",
+    "label": "MemProcFS",
+    "names": [
+      "MemProcFS"
+    ],
+    "description": "Mount memory images as filesystem - browse process memory as files"
+  },
+  {
+    "category": "FORENSICS & INCIDENT RESPONSE",
+    "label": "Eric Zimmerman Tools",
+    "names": [
+      "Eric Zimmerman Tools"
+    ],
+    "description": "EvtxECmd · PECmd · AmcacheParser · ShimCacheParser · MFTECmd"
+  },
+  {
+    "category": "FORENSICS & INCIDENT RESPONSE",
+    "label": "Plaso / log2timeline",
+    "names": [
+      "Plaso / log2timeline"
+    ],
+    "description": "Super-timeline generation from multiple forensic artifacts"
+  },
+  {
+    "category": "FORENSICS & INCIDENT RESPONSE",
+    "label": "Autopsy / Sleuth Kit",
+    "names": [
+      "Autopsy / Sleuth Kit"
+    ],
+    "description": "Open-source disk forensics platform - free and court-admissible"
+  },
+  {
+    "category": "FORENSICS & INCIDENT RESPONSE",
+    "label": "FTK / Magnet AXIOM",
+    "names": [
+      "FTK / Magnet AXIOM"
+    ],
+    "description": "Commercial forensics platforms with advanced analysis capabilities"
+  },
+  {
+    "category": "FORENSICS & INCIDENT RESPONSE",
+    "label": "winpmem / LiME",
+    "names": [
+      "winpmem",
+      "LiME"
+    ],
+    "description": "Memory acquisition - Windows (free) and Linux (kernel module)"
+  },
+  {
+    "category": "FORENSICS & INCIDENT RESPONSE",
+    "label": "TheHive / IRIS",
+    "names": [
+      "TheHive",
+      "IRIS"
+    ],
+    "description": "Open-source IR case management with evidence tracking"
+  },
+  {
+    "category": "DECEPTION",
+    "label": "Thinkst Canary",
+    "names": [
+      "Thinkst Canary"
+    ],
+    "description": "Commercial honeypot hardware/VMs with realistic service emulation"
+  },
+  {
+    "category": "DECEPTION",
+    "label": "canarytokens.org",
+    "names": [
+      "canarytokens.org"
+    ],
+    "description": "Free web-based canary token generator - 20+ token types"
+  },
+  {
+    "category": "DECEPTION",
+    "label": "OpenCanary",
+    "names": [
+      "OpenCanary"
+    ],
+    "description": "Open-source honeypot service emulator - SSH, HTTP, SMB, FTP"
+  },
+  {
+    "category": "DECEPTION",
+    "label": "Attivo / SentinelOne Ranger",
+    "names": [
+      "Attivo / SentinelOne Ranger"
+    ],
+    "description": "Enterprise deception platform with automated deception fabric"
+  },
+  {
+    "category": "VULNERABILITY MANAGEMENT",
+    "label": "Tenable Nessus / Tenable.io",
+    "names": [
+      "Tenable Nessus",
+      "Tenable.io"
+    ],
+    "description": "Industry standard - credentialed scans, agent-based deployment"
+  },
+  {
+    "category": "VULNERABILITY MANAGEMENT",
+    "label": "Qualys VMDR / Rapid7 InsightVM",
+    "names": [
+      "Qualys VMDR",
+      "Rapid7 InsightVM"
+    ],
+    "description": "Cloud-based VM platforms with risk-based prioritization scoring"
+  },
+  {
+    "category": "VULNERABILITY MANAGEMENT",
+    "label": "Nuclei",
+    "names": [
+      "Nuclei"
+    ],
+    "description": "Template-based CVE scanner with massive community template library"
+  },
+  {
+    "category": "VULNERABILITY MANAGEMENT",
+    "label": "Prowler / ScoutSuite / CloudFox",
+    "names": [
+      "Prowler",
+      "ScoutSuite",
+      "CloudFox"
+    ],
+    "description": "Cloud security posture assessment - multi-cloud open source"
+  },
+  {
+    "category": "VULNERABILITY MANAGEMENT",
+    "label": "Trivy / Grype / Checkov",
+    "names": [
+      "Trivy",
+      "Grype",
+      "Checkov"
+    ],
+    "description": "Container and IaC security scanning for CI/CD pipeline integration"
+  },
+  {
+    "category": "DETECTION ENGINEERING",
+    "label": "SigmaHQ / sigma-cli / Uncoder.io",
+    "names": [
+      "SigmaHQ",
+      "sigma-cli",
+      "Uncoder.io"
+    ],
+    "description": "Generic detection rule format, compiler, and online translator"
+  },
+  {
+    "category": "DETECTION ENGINEERING",
+    "label": "ATT&CK Navigator",
+    "names": [
+      "ATT&CK Navigator"
+    ],
+    "description": "Coverage visualization, gap analysis, and threat actor overlay"
+  },
+  {
+    "category": "DETECTION ENGINEERING",
+    "label": "Detection Lab",
+    "names": [
+      "Detection Lab"
+    ],
+    "description": "Pre-built lab environment for detection testing and rule development"
+  },
+  {
+    "category": "DETECTION ENGINEERING",
+    "label": "MITRE D3FEND",
+    "names": [
+      "MITRE D3FEND"
+    ],
+    "description": "Countermeasure knowledge base mapped to ATT&CK techniques"
+  },
+  {
+    "category": "SOAR PLATFORMS",
+    "label": "Palo Alto XSOAR",
+    "names": [
+      "Palo Alto XSOAR"
+    ],
+    "description": "Leading commercial SOAR - 750+ integrations, marketplace playbooks"
+  },
+  {
+    "category": "SOAR PLATFORMS",
+    "label": "Splunk SOAR",
+    "names": [
+      "Splunk SOAR"
+    ],
+    "description": "Deep Splunk integration, visual playbook builder"
+  },
+  {
+    "category": "SOAR PLATFORMS",
+    "label": "Microsoft Sentinel Playbooks",
+    "names": [
+      "Microsoft Sentinel Playbooks"
+    ],
+    "description": "Logic Apps-based automation natively integrated with Sentinel"
+  },
+  {
+    "category": "SOAR PLATFORMS",
+    "label": "Shuffle",
+    "names": [
+      "Shuffle"
+    ],
+    "description": "Open-source SOAR - self-hosted, workflow-based automation"
+  },
+  {
+    "category": "SOAR PLATFORMS",
+    "label": "TheHive + Cortex",
+    "names": [
+      "TheHive + Cortex"
+    ],
+    "description": "Open-source IR + automated analyzer + SOAR integration"
+  }
+]

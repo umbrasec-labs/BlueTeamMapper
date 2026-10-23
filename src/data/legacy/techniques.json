@@ -1,0 +1,134 @@
+[
+  {
+    "name": "Spear phishing (HTML smuggling)",
+    "detection": "Email gateway + browser telemetry",
+    "severity": "high",
+    "response": "Block sender/domain · hunt all recipients · check for execution"
+  },
+  {
+    "name": "LNK / ISO file delivery",
+    "detection": "Email attachment scan · Sysmon Event 1",
+    "severity": "high",
+    "response": "Block file type at gateway · hunt org-wide for execution"
+  },
+  {
+    "name": "Shellcode loader (custom)",
+    "detection": "EDR behavioral + AMSI if PowerShell-staged",
+    "severity": "critical",
+    "response": "Isolate host · memory forensics before reboot"
+  },
+  {
+    "name": "Process injection",
+    "detection": "Sysmon 8/10 · ETW-TI · EDR behavioral",
+    "severity": "critical",
+    "response": "Isolate · terminate injected process · investigate parent"
+  },
+  {
+    "name": "DLL sideloading",
+    "detection": "Sysmon 7 (DLL load) · PE signature check",
+    "severity": "high",
+    "response": "Block sideload path · hunt similar DLL pairs fleet-wide"
+  },
+  {
+    "name": "LSASS credential dump",
+    "detection": "Sysmon 10 GrantedAccess 0x1FFFFF · EDR",
+    "severity": "critical",
+    "response": "Full cred scope → reset ALL exposed credentials immediately"
+  },
+  {
+    "name": "Kerberoasting",
+    "detection": "Event 4769 etype=0x17 (RC4)",
+    "severity": "high",
+    "response": "Rotate SPN passwords · enforce AES on all service accounts"
+  },
+  {
+    "name": "DCSync",
+    "detection": "Event 4662 + DRS rights + non-DC source",
+    "severity": "critical",
+    "response": "Full DA scope · krbtgt ×2 · all Domain Admin creds reset"
+  },
+  {
+    "name": "Pass-the-Hash",
+    "detection": "Event 4624 Type 3 NTLM without prior 4648",
+    "severity": "critical",
+    "response": "Scope impacted account · rotate · enable Credential Guard"
+  },
+  {
+    "name": "Golden Ticket",
+    "detection": "Event 4769 anomalous PAC data · unusual lifetimes",
+    "severity": "critical",
+    "response": "krbtgt ×2 (48hr apart) · re-scope all access"
+  },
+  {
+    "name": "PsExec lateral movement",
+    "detection": "Event 7045 (service install) · Sysmon 1/17/18",
+    "severity": "high",
+    "response": "Block at other hosts · trace source creds · scope spread"
+  },
+  {
+    "name": "WMI remote execution",
+    "detection": "WMI-Activity log · WmiPrvSE child processes",
+    "severity": "high",
+    "response": "Investigate source credentials · scope lateral reach"
+  },
+  {
+    "name": "Scheduled task persistence",
+    "detection": "Event 4698 · Sysmon 1 (schtasks.exe)",
+    "severity": "high",
+    "response": "Delete task · investigate creator account · hunt fleet"
+  },
+  {
+    "name": "Registry Run key persistence",
+    "detection": "Sysmon 13 · Autoruns baseline diff",
+    "severity": "medium",
+    "response": "Remove key · hunt similar on all hosts · investigate parent"
+  },
+  {
+    "name": "DNS exfiltration",
+    "detection": "Sysmon 22 · Zeek dns.log · volume anomaly",
+    "severity": "high",
+    "response": "Block domain · sinkhole · investigate originating host"
+  },
+  {
+    "name": "HTTPS C2 beaconing",
+    "detection": "Beaconing detection (RITA) · JA3 · Zeek",
+    "severity": "critical",
+    "response": "Block C2 domain/IP · isolate host · full memory forensics"
+  },
+  {
+    "name": "Cloud token theft / device code",
+    "detection": "Sign-in risk · Entra ID Protection · IP mismatch",
+    "severity": "critical",
+    "response": "Revoke all tokens · CAP review · audit app registrations"
+  },
+  {
+    "name": "ADCS ESC1 exploitation",
+    "detection": "ADCS audit log Event 4887 · SAN for DA UPN",
+    "severity": "critical",
+    "response": "Revoke cert · fix template perms · Locksmith full audit"
+  },
+  {
+    "name": "Ransomware encryption",
+    "detection": "Controlled Folder Access · mass file rename pattern",
+    "severity": "critical",
+    "response": "EMERGENCY - activate BC/DR · segment network · validate backups"
+  },
+  {
+    "name": "BYOVD vulnerable driver",
+    "detection": "Sysmon 6 (driver load) · WDAC block",
+    "severity": "critical",
+    "response": "Block driver hash · update WDAC policy · isolate host"
+  },
+  {
+    "name": "ClickFix / clipboard paste",
+    "detection": "PowerShell ScriptBlock 4104 · Run dialog",
+    "severity": "high",
+    "response": "Block execution · user education campaign · hunt recipients"
+  },
+  {
+    "name": "AS-REP Roasting",
+    "detection": "Event 4768 with pre-auth disabled accounts",
+    "severity": "medium",
+    "response": "Enable pre-auth on all accounts · rotate exposed passwords"
+  }
+]
