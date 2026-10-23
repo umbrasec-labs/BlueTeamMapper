@@ -9,6 +9,8 @@ import { RadialView } from '@/views/RadialView';
 const LayersView = lazy(() => import('@/views/LayersView'));
 const FlowsView = lazy(() => import('@/views/FlowsView'));
 const MatrixView = lazy(() => import('@/views/MatrixView'));
+const DetectionsView = lazy(() => import('@/views/DetectionsView'));
+const CoverageView = lazy(() => import('@/views/CoverageView'));
 const EventsView = lazy(() => import('@/views/EventsView'));
 const ToolsView = lazy(() => import('@/views/ToolsView'));
 const SectionView = lazy(() => import('@/views/SectionView'));
@@ -31,6 +33,8 @@ export function App() {
             <Route path="flows" element={<FlowsView />} />
             <Route path="flows/:chainId" element={<FlowsView />} />
             <Route path="matrix" element={<MatrixView />} />
+            <Route path="detections" element={<DetectionsView />} />
+            <Route path="coverage" element={<CoverageView />} />
             <Route path="events" element={<EventsView />} />
             <Route path="tools" element={<ToolsView />} />
             <Route path="sections/:sectionId" element={<SectionView />} />

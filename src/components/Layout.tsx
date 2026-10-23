@@ -13,6 +13,8 @@ const titles: [RegExp, string][] = [
   [/^\/layers/, 'Architecture Layers'],
   [/^\/flows/, 'Defense Flow Chains'],
   [/^\/matrix/, 'Technique Detection Matrix'],
+  [/^\/detections/, 'Detections'],
+  [/^\/coverage/, 'Coverage Assessment'],
   [/^\/events/, 'Event ID Reference'],
   [/^\/tools/, 'Tool Arsenal'],
   [/^\/sections/, 'Reference Section'],
@@ -39,9 +41,18 @@ export function Layout() {
         e.preventDefault();
         openSearch();
       } else if (e.key === 'g') {
-        // Quick view switching: L lifecycle, A architecture, F flows, M matrix, T tools, E events.
+        // Quick view switching: L lifecycle, A architecture, F flows, M matrix, D detections, C coverage, T tools, E events.
         const onNext = (n: KeyboardEvent) => {
-          const routes: Record<string, string> = { l: '/', a: '/layers', f: '/flows', m: '/matrix', t: '/tools', e: '/events' };
+          const routes: Record<string, string> = {
+            l: '/',
+            a: '/layers',
+            f: '/flows',
+            m: '/matrix',
+            d: '/detections',
+            c: '/coverage',
+            t: '/tools',
+            e: '/events',
+          };
           const to = routes[n.key.toLowerCase()];
           if (to) {
             n.preventDefault();

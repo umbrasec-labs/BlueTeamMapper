@@ -4,6 +4,9 @@ name: deploy
 on:
   push:
     branches: [main]
+  # Daily rebuild picks up new sigma-pack rules and umbra-blue skills.
+  schedule:
+    - cron: '17 6 * * *'
   workflow_dispatch:
 
 permissions:
@@ -25,6 +28,17 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Detections come from the canonical sources, synced fresh on every deploy.
+      - uses: actions/checkout@v4
+        with:
+          repository: umbrasec-labs/umbrasec.dev
+          path: .sources/umbrasec.dev
+          sparse-checkout: tools/sigma-pack
+      - uses: actions/checkout@v4
+        with:
+          repository: umbrasec-labs/umbra-blue
+          path: .sources/umbra-blue
+      - run: npm run sync:detections -- --sigma-pack .sources/umbrasec.dev/tools/sigma-pack --umbra-blue .sources/umbra-blue
       # Project site at https://<owner>.github.io/<repo>/. For a user/org site or a
       # custom domain served from the root, set VITE_BASE: /
       - run: npm run build

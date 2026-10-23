@@ -12,6 +12,7 @@ import {
   toolCategoryById,
   tools,
 } from '@/data';
+import { rules, skills } from '@/data/detections';
 
 export type SearchKind =
   | 'phase'
@@ -22,7 +23,9 @@ export type SearchKind =
   | 'tool'
   | 'event'
   | 'section'
-  | 'card';
+  | 'card'
+  | 'rule'
+  | 'skill';
 
 export interface SearchDoc {
   id: string;
@@ -44,6 +47,8 @@ export const kindLabel: Record<SearchKind, string> = {
   event: 'Event ID',
   section: 'Section',
   card: 'Reference card',
+  rule: 'UMBRASEC rule',
+  skill: 'umbra-blue skill',
 };
 
 /** Order result groups appear in. */
@@ -52,11 +57,13 @@ export const kindOrder: SearchKind[] = [
   'layer',
   'chain',
   'technique',
+  'rule',
   'event',
   'tool',
   'step',
   'section',
   'card',
+  'skill',
 ];
 
 function buildDocs(): SearchDoc[] {
@@ -135,6 +142,28 @@ function buildDocs(): SearchDoc[] {
       subtitle: toolCategoryById[t.category]?.label ?? t.category,
       body: `${t.names.join(' ')} ${t.description}`,
       to: `/tools?focus=${t.id}`,
+    });
+  }
+
+  for (const r of rules) {
+    docs.push({
+      id: `rule:${r.id}`,
+      kind: 'rule',
+      title: r.title,
+      subtitle: `${r.kind === 'kql' ? 'KQL' : 'Sigma'} · ${r.attackIds.join(', ')}`,
+      body: `${r.file} ${r.description} ${r.attackIds.join(' ')} ${r.logsource ?? ''}`,
+      to: `/detections?focus=${r.id}`,
+    });
+  }
+
+  for (const sk of skills) {
+    docs.push({
+      id: `skill:${sk.name}`,
+      kind: 'skill',
+      title: sk.name,
+      subtitle: `Tier ${sk.tier} · ${sk.category}`,
+      body: `${sk.description} ${sk.attackIds.join(' ')}`,
+      to: `/detections?tab=skills&q=${encodeURIComponent(sk.name)}`,
     });
   }
 
