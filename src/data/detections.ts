@@ -1,13 +1,37 @@
 import raw from './external/detections.json';
 import { flowChains } from './flowChains';
 import { techniques } from './techniques';
-import type { FlowChain, Technique } from './types';
+import type { FlowChain, Hue, Technique } from './types';
 
 /**
  * UMBRASEC detections, synced from the sigma-pack (umbrasec.dev) and the umbra-blue
  * skill library by scripts/sync-detections.mjs. Rule content is the canonical copy,
  * byte for byte. Never edit external/detections.json by hand; re-run the sync.
  */
+
+/**
+ * Claims Ledger status for one rule, from the umbrasec-labs/detections harness.
+ * "mismatch" is the mapper's own: the rule shown here is not the bytes the harness proved.
+ */
+export type ClaimStatus = 'verified' | 'not-executed' | 'stale' | 'failing' | 'mismatch' | 'unclaimed';
+
+/** What the Claims Ledger proved about one rule. Attached only when the sync ran with --claims. */
+export interface RuleClaims {
+  status: ClaimStatus;
+  /** Claims per kind (catches, false-positive, blind-spot, excluded, near-miss, undocumented). */
+  counts: Record<string, number>;
+  /** Claims that passed in the harness run the sync read, out of `total`. */
+  passed: number;
+  total: number;
+  /** Blind-spot claims that passed: the rule stayed quiet, so the limitation is real. */
+  blindSpots: { id: string; quote: string }[];
+  /** False-positive claims that passed: the harmless activity does trip the rule. */
+  falsePositives: { id: string; quote: string }[];
+  /** Behaviour the rule text does not mention, each linked to an upstream issue or "pending". */
+  findings: { id: string; summary: string; confidence: string | null; upstream: string | null }[];
+  claimsUrl: string | null;
+  engine: 'sigma' | 'kusto';
+}
 
 export interface DetectionRule {
   id: string;
@@ -27,6 +51,7 @@ export interface DetectionRule {
   falsepositives: string[];
   writeup: string | null;
   content: string;
+  claims?: RuleClaims;
 }
 
 export interface BlueSkill {
@@ -42,8 +67,15 @@ export interface BlueSkill {
   url: string;
 }
 
+interface DetectionSource {
+  repo: string;
+  commit: string | null;
+  url: string;
+}
+
 interface DetectionsFile {
-  sources: Record<'sigmaPack' | 'umbraBlue', { repo: string; commit: string | null; url: string }>;
+  /** `detections` is present only when the sync ran with --claims. */
+  sources: Record<'sigmaPack' | 'umbraBlue', DetectionSource> & Partial<Record<'detections', DetectionSource>>;
   rules: DetectionRule[];
   skills: BlueSkill[];
 }
@@ -66,6 +98,73 @@ export const tierMeta: Record<BlueSkill['tier'], { label: string; hint: string }
   1: { label: 'Sourced', hint: 'Built from a published UMBRASEC writeup. Ships a runnable detection or hunt.' },
   2: { label: 'Methodology', hint: 'The defender’s method, signals and hunt. No bespoke UMBRASEC rule ships yet.' },
 };
+
+/** Where the Claims Ledger's signed records live. */
+export const attestationsUrl = 'https://github.com/umbrasec-labs/detections/attestations';
+
+/**
+ * Chip tone and one-line meaning per Claims Ledger status. A null hue is neutral.
+ * The harness checks "stale" and "failing" before it checks the engine, so a KQL query can
+ * have either status while none of its claims ran. `kustoHint` covers that case.
+ * The status comes from the harness run inside the site build. That run is unsigned, so
+ * the copy names it and never reads as the attested run.
+ */
+export const claimStatusMeta: Record<ClaimStatus, { short: string; hue: Hue | null; hint: string; kustoHint?: string }> = {
+  verified: {
+    short: 'Verified',
+    hue: 'sage',
+    hint: 'Every claim passed when this site was built, and every false-positive note and writeup limitation is accounted for.',
+  },
+  'not-executed': {
+    short: 'Not executed',
+    hue: 'slate',
+    hint: 'The claims passed schema and quote checks when this site was built. No Kusto engine runs them in CI yet.',
+  },
+  stale: {
+    short: 'Stale',
+    hue: 'gold',
+    hint: 'The rule changed since its claims were last reviewed. They still ran when this site was built, and need a human re-read.',
+    kustoHint:
+      'The query changed since its claims were last reviewed. They need a human re-read. No Kusto engine runs them in CI yet.',
+  },
+  failing: {
+    short: 'Failing',
+    hue: 'ember',
+    hint: 'A claim or a coverage check failed when this site was built.',
+    kustoHint:
+      'A schema, quote or coverage check failed when this site was built. No Kusto engine runs the claims in CI yet.',
+  },
+  mismatch: {
+    short: 'Mismatch',
+    hue: 'ember',
+    hint: 'The rule shown here differs from the bytes the claims ran on, so no proofs are shown.',
+  },
+  unclaimed: {
+    short: 'Unclaimed',
+    hue: null,
+    hint: 'No claims file covers this rule yet.',
+  },
+};
+
+/** One-line meaning of a rule's status, true for its engine. */
+export function claimsHint(c: RuleClaims): string {
+  const meta = claimStatusMeta[c.status];
+  return (c.engine === 'kusto' && meta.kustoHint) || meta.hint;
+}
+
+/** Chip text, e.g. "Claims verified 9/9" or "KQL: not executed". */
+export function claimsLabel(c: RuleClaims): string {
+  switch (c.status) {
+    case 'verified':
+      return `Claims verified ${c.passed}/${c.total}`;
+    case 'not-executed':
+      return c.engine === 'kusto' ? 'KQL: not executed' : 'Claims not executed';
+    case 'unclaimed':
+      return 'No claims yet';
+    default:
+      return `Claims ${claimStatusMeta[c.status].short.toLowerCase()}`;
+  }
+}
 
 /**
  * Permalink routes other UMBRASEC repos link to. Public contract: keep these stable.

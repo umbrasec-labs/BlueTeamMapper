@@ -1,8 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { BookOpen, Check, Copy, ExternalLink, FileCode2, GitCommitHorizontal, Search, Sparkles } from 'lucide-react';
+import {
+  BookOpen,
+  Check,
+  ChevronDown,
+  Copy,
+  ExternalLink,
+  FileCode2,
+  GitCommitHorizontal,
+  Search,
+  Sparkles,
+} from 'lucide-react';
 import {
   attackPath,
+  attestationsUrl,
+  claimsHint,
   detectionSources,
   rules,
   skillPath,
@@ -11,8 +23,9 @@ import {
   techniquesForIds,
   type BlueSkill,
   type DetectionRule,
+  type RuleClaims,
 } from '@/data/detections';
-import { TierBadge } from '@/components/Badges';
+import { ClaimsBadge, TierBadge } from '@/components/Badges';
 import { EmptyState } from '@/components/Feedback';
 import { ruleLevelClass } from '@/components/DetectionLinks';
 
@@ -28,6 +41,154 @@ function AttackChips({ ids }: { ids: string[] }) {
         </Link>
       ))}
     </>
+  );
+}
+
+const confidenceLabel = new Map([
+  ['confirmed', 'Confirmed'],
+  ['needs-telemetry', 'Needs telemetry'],
+]);
+
+const isUrl = (s: string | null): s is string => !!s && /^https:\/\//.test(s);
+
+/** github.com/<owner>/<repo>/issues/<n> → "<repo>#<n>". Any other URL → "Upstream issue". */
+function issueLabel(url: string) {
+  const m = url.match(/^https:\/\/github\.com\/[^/]+\/([^/]+)\/issues\/(\d+)\/?$/);
+  return m ? `${m[1]}#${m[2]}` : 'Upstream issue';
+}
+
+function ProvedList({ title, items }: { title: string; items: { id: string; quote: string }[] }) {
+  return (
+    <div>
+      <h5 className="mb-1.5 flex items-center gap-2 text-xs font-medium text-fog-dim">
+        {title} <span className="tabular font-mono text-2xs text-fog-muted">{items.length}</span>
+      </h5>
+      {items.length > 0 ? (
+        <ul className="space-y-2">
+          {items.map((c) => (
+            <li key={c.id} className="border-l-2 border-white/10 pl-2.5">
+              <p className="text-xs leading-relaxed text-fog-bright">“{c.quote}”</p>
+              <p className="mt-0.5 font-mono text-2xs text-fog-muted [overflow-wrap:anywhere]">{c.id}</p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-fog-muted">None proved for this rule.</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * What the Claims Ledger (umbrasec-labs/detections) proved about this rule. Shows only what
+ * claims.json holds: the status, claim counts, proved blind spots and false positives, and
+ * findings with their upstream issues.
+ */
+function RuleClaimsSection({ rule, claims }: { rule: DetectionRule; claims: RuleClaims }) {
+  const [open, setOpen] = useState(false);
+  const headingId = `claims-h-${rule.id}`;
+  const bodyId = `claims-body-${rule.id}`;
+  const listed = claims.blindSpots.length + claims.falsePositives.length + claims.findings.length;
+  const proved = claims.engine === 'sigma' && ['verified', 'stale', 'failing'].includes(claims.status);
+  const showCounts = claims.total > 0 && claims.status !== 'mismatch';
+  const kinds = Object.entries(claims.counts).filter(([, n]) => n > 0);
+
+  return (
+    <section aria-labelledby={headingId} className="mt-4 rounded-lg border border-white/[0.07] bg-ink-850/60">
+      <div className="p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <h4 id={headingId} className="eyebrow text-fog-bright">
+            Claims Ledger
+          </h4>
+          <ClaimsBadge claims={claims} />
+          {claims.status !== 'unclaimed' && (
+            <span className="flex flex-wrap gap-1.5 sm:ml-auto">
+              {claims.claimsUrl && (
+                <a href={claims.claimsUrl} target="_blank" rel="noreferrer" className="chip">
+                  Claims file <ExternalLink aria-hidden className="h-3 w-3" />
+                </a>
+              )}
+              <a href={attestationsUrl} target="_blank" rel="noreferrer" className="chip">
+                Attestations <ExternalLink aria-hidden className="h-3 w-3" />
+              </a>
+            </span>
+          )}
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-fog-dim">{claimsHint(claims)}</p>
+        {showCounts && (
+          <p className="mt-1 font-mono text-2xs text-fog-muted">
+            <span className="tabular">
+              {claims.engine === 'sigma' ? `${claims.passed} of ${claims.total} claims passed` : `${claims.total} claims`}
+            </span>
+            {kinds.map(([kind, n]) => (
+              <span key={kind}>
+                {' · '}
+                {kind} <span className="tabular">{n}</span>
+              </span>
+            ))}
+          </p>
+        )}
+        {proved && (
+          <p className="mt-2 text-2xs text-fog-muted">
+            Proved on synthetic events under Sigma reference semantics. This does not test your telemetry or field
+            mappings.
+          </p>
+        )}
+      </div>
+      {listed > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-controls={bodyId}
+            className="group flex w-full items-center gap-2 rounded-b-lg border-t border-white/[0.06] px-3 py-2 text-left text-xs text-fog-bright transition hover:bg-white/[0.02]"
+          >
+            <span className="min-w-0 flex-1">Blind spots, false positives and findings</span>
+            <span className="tabular font-mono text-2xs text-fog-muted">{listed}</span>
+            <ChevronDown
+              aria-hidden
+              className={`h-4 w-4 shrink-0 text-fog-dim transition-transform group-hover:text-ember ${open ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {open && (
+            <div id={bodyId} className="space-y-4 border-t border-white/[0.06] p-3">
+              <ProvedList title="Proved blind spots" items={claims.blindSpots} />
+              <ProvedList title="Proved false positives" items={claims.falsePositives} />
+              <div>
+                <h5 className="mb-1.5 flex items-center gap-2 text-xs font-medium text-fog-dim">
+                  Findings tracked upstream{' '}
+                  <span className="tabular font-mono text-2xs text-fog-muted">{claims.findings.length}</span>
+                </h5>
+                {claims.findings.length > 0 ? (
+                  <ul className="space-y-2.5">
+                    {claims.findings.map((f) => (
+                      <li key={f.id} className="border-l-2 border-white/10 pl-2.5">
+                        <p className="text-xs leading-relaxed text-fog-bright">{f.summary}</p>
+                        <p className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-2xs text-fog-muted">
+                          <span className="[overflow-wrap:anywhere]">{f.id}</span>
+                          {f.confidence && <span className="chip">{confidenceLabel.get(f.confidence) ?? f.confidence}</span>}
+                          {isUrl(f.upstream) ? (
+                            <a href={f.upstream} target="_blank" rel="noreferrer" className="chip text-ember/90">
+                              <span className="sr-only">Upstream issue </span>
+                              {issueLabel(f.upstream)} <ExternalLink aria-hidden className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <span className="chip">Upstream: pending</span>
+                          )}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-fog-muted">None for this rule.</p>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
@@ -105,6 +266,7 @@ function RuleDetail({ rule }: { rule: DetectionRule }) {
             </ul>
           </div>
         )}
+        {rule.claims && <RuleClaimsSection key={rule.id} rule={rule} claims={rule.claims} />}
         <div className="mt-4 flex flex-wrap gap-2">
           {rule.writeup && (
             <a href={rule.writeup} target="_blank" rel="noreferrer" className="btn btn-primary">
@@ -137,7 +299,7 @@ function RulesTab({ focus, onFocus }: { focus: string | null; onFocus: (id: stri
 
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
-      <div className="space-y-2">
+      <div className="min-w-0 space-y-2">
         <div role="group" aria-label="Rule type" className="flex rounded-lg border border-white/10 p-0.5">
           {(['all', 'sigma', 'kql'] as const).map((k) => (
             <button
@@ -173,6 +335,7 @@ function RulesTab({ focus, onFocus }: { focus: string | null; onFocus: (id: stri
                   <span className="mt-1 flex flex-wrap items-center gap-1.5 pl-5 font-mono text-2xs text-fog-muted">
                     {r.attackIds.join(' · ')}
                     {r.level && <span className={`rounded border px-1 ${ruleLevelClass[r.level]}`}>{r.level}</span>}
+                    {r.claims && <ClaimsBadge claims={r.claims} compact />}
                   </span>
                 </button>
               </li>
@@ -315,6 +478,11 @@ export default function DetectionsView() {
           <a href={src.umbraBlue.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-fog-bright">
             <GitCommitHorizontal aria-hidden className="h-3 w-3" /> umbra-blue @ {src.umbraBlue.commit ?? 'local'}
           </a>
+          {src.detections && (
+            <a href={src.detections.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-fog-bright">
+              <GitCommitHorizontal aria-hidden className="h-3 w-3" /> detections @ {src.detections.commit ?? 'local'}
+            </a>
+          )}
         </p>
       </header>
 

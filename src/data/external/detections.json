@@ -9,6 +9,11 @@
       "repo": "umbrasec-labs/umbra-blue",
       "commit": "b72c1ea",
       "url": "https://github.com/umbrasec-labs/umbra-blue"
+    },
+    "detections": {
+      "repo": "umbrasec-labs/detections",
+      "commit": "b7ebeea",
+      "url": "https://github.com/umbrasec-labs/detections"
     }
   },
   "rules": [
@@ -30,7 +35,25 @@
       "logsource": "Microsoft Sentinel / Log Analytics",
       "falsepositives": [],
       "writeup": "https://umbrasec.dev/research/detecting-oauth-consent-phishing.html",
-      "content": "// UMBRASEC sigma-pack - OAuth consent phishing (T1528), detection 3 of 3\n// App-role (application permission) assignments - standing, user-independent access\n// Source writeup: https://umbrasec.dev/research/detecting-oauth-consent-phishing.html\n// Tuning: high-value app roles to flag by name include full_access_as_app\n// (Exchange), Mail.ReadWrite, and any *.ReadWrite.All. These should be rare,\n// deliberate, and reconciled against a change ticket.\nAuditLogs\n| where OperationName in (\"Add app role assignment to service principal\",\n                          \"Add app role assignment grant to user\")\n| where Result == \"success\"\n| mv-expand TargetResources\n| extend mods = TargetResources.modifiedProperties\n| mv-expand mods\n| extend propName = tostring(mods.displayName), newVal = tostring(mods.newValue)\n| where propName in (\"AppRole.Value\", \"ServicePrincipal.DisplayName\")\n| project TimeGenerated, OperationName,\n          Actor = tostring(InitiatedBy.user.userPrincipalName), propName, newVal\n"
+      "content": "// UMBRASEC sigma-pack - OAuth consent phishing (T1528), detection 3 of 3\n// App-role (application permission) assignments - standing, user-independent access\n// Source writeup: https://umbrasec.dev/research/detecting-oauth-consent-phishing.html\n// Tuning: high-value app roles to flag by name include full_access_as_app\n// (Exchange), Mail.ReadWrite, and any *.ReadWrite.All. These should be rare,\n// deliberate, and reconciled against a change ticket.\nAuditLogs\n| where OperationName in (\"Add app role assignment to service principal\",\n                          \"Add app role assignment grant to user\")\n| where Result == \"success\"\n| mv-expand TargetResources\n| extend mods = TargetResources.modifiedProperties\n| mv-expand mods\n| extend propName = tostring(mods.displayName), newVal = tostring(mods.newValue)\n| where propName in (\"AppRole.Value\", \"ServicePrincipal.DisplayName\")\n| project TimeGenerated, OperationName,\n          Actor = tostring(InitiatedBy.user.userPrincipalName), propName, newVal\n",
+      "claims": {
+        "status": "not-executed",
+        "counts": {
+          "blind-spot": 0,
+          "catches": 2,
+          "excluded": 0,
+          "false-positive": 0,
+          "near-miss": 1,
+          "undocumented": 0
+        },
+        "passed": 0,
+        "total": 3,
+        "blindSpots": [],
+        "falsePositives": [],
+        "findings": [],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/app-role-assignment.yml",
+        "engine": "kusto"
+      }
     },
     {
       "id": "oauth-consent-sensitive-scopes",
@@ -50,7 +73,25 @@
       "logsource": "Microsoft Sentinel / Log Analytics",
       "falsepositives": [],
       "writeup": "https://umbrasec.dev/research/detecting-oauth-consent-phishing.html",
-      "content": "// UMBRASEC sigma-pack - OAuth consent phishing (T1528), detection 1 of 3\n// Entra ID audit: consent to an app requesting sensitive delegated scopes\n// Source writeup: https://umbrasec.dev/research/detecting-oauth-consent-phishing.html\n// Tuning: allowlist sanctioned AppIds; IsAdminConsent == \"True\" is the\n// high-severity branch (tenant-wide grant). Validate modifiedProperties\n// field names against your own tenant before alerting.\nAuditLogs\n| where OperationName == \"Consent to application\"\n| where Result == \"success\"\n| mv-expand TargetResources\n| extend mods = TargetResources.modifiedProperties\n| mv-expand mods\n| extend propName = tostring(mods.displayName), newVal = tostring(mods.newValue)\n| summarize props = make_bag(bag_pack(propName, newVal))\n        by CorrelationId, TimeGenerated,\n           Actor = tostring(InitiatedBy.user.userPrincipalName)\n| extend Permissions   = tostring(props[\"ConsentAction.Permissions\"]),\n         IsAdminConsent = tostring(props[\"ConsentContext.IsAdminConsent\"]),\n         AppDisplayName = tostring(props[\"TargetId.ServicePrincipalNames\"])\n| where Permissions has_any (\n        \"Mail.Read\", \"Mail.ReadWrite\", \"Mail.Send\", \"MailboxSettings.ReadWrite\",\n        \"Files.ReadWrite.All\", \"Sites.ReadWrite.All\", \"offline_access\",\n        \"User.Read.All\", \"Directory.Read.All\")\n| project TimeGenerated, Actor, AppDisplayName, IsAdminConsent, Permissions\n"
+      "content": "// UMBRASEC sigma-pack - OAuth consent phishing (T1528), detection 1 of 3\n// Entra ID audit: consent to an app requesting sensitive delegated scopes\n// Source writeup: https://umbrasec.dev/research/detecting-oauth-consent-phishing.html\n// Tuning: allowlist sanctioned AppIds; IsAdminConsent == \"True\" is the\n// high-severity branch (tenant-wide grant). Validate modifiedProperties\n// field names against your own tenant before alerting.\nAuditLogs\n| where OperationName == \"Consent to application\"\n| where Result == \"success\"\n| mv-expand TargetResources\n| extend mods = TargetResources.modifiedProperties\n| mv-expand mods\n| extend propName = tostring(mods.displayName), newVal = tostring(mods.newValue)\n| summarize props = make_bag(bag_pack(propName, newVal))\n        by CorrelationId, TimeGenerated,\n           Actor = tostring(InitiatedBy.user.userPrincipalName)\n| extend Permissions   = tostring(props[\"ConsentAction.Permissions\"]),\n         IsAdminConsent = tostring(props[\"ConsentContext.IsAdminConsent\"]),\n         AppDisplayName = tostring(props[\"TargetId.ServicePrincipalNames\"])\n| where Permissions has_any (\n        \"Mail.Read\", \"Mail.ReadWrite\", \"Mail.Send\", \"MailboxSettings.ReadWrite\",\n        \"Files.ReadWrite.All\", \"Sites.ReadWrite.All\", \"offline_access\",\n        \"User.Read.All\", \"Directory.Read.All\")\n| project TimeGenerated, Actor, AppDisplayName, IsAdminConsent, Permissions\n",
+      "claims": {
+        "status": "not-executed",
+        "counts": {
+          "blind-spot": 0,
+          "catches": 2,
+          "excluded": 0,
+          "false-positive": 0,
+          "near-miss": 1,
+          "undocumented": 0
+        },
+        "passed": 0,
+        "total": 3,
+        "blindSpots": [],
+        "falsePositives": [],
+        "findings": [],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/oauth-consent-sensitive-scopes.yml",
+        "engine": "kusto"
+      }
     },
     {
       "id": "oauth2-permission-grant-post",
@@ -70,7 +111,25 @@
       "logsource": "Microsoft Sentinel / Log Analytics",
       "falsepositives": [],
       "writeup": "https://umbrasec.dev/research/detecting-oauth-consent-phishing.html",
-      "content": "// UMBRASEC sigma-pack - OAuth consent phishing (T1528), detection 2 of 3\n// The moment a delegated permission grant is created via Microsoft Graph\n// Source writeup: https://umbrasec.dev/research/detecting-oauth-consent-phishing.html\n// Tuning: your own admins legitimately create grants during app onboarding.\n// Scope this to actors outside your identity/app-admin roles, or correlate\n// the source IP against known administrative networks.\nMicrosoftGraphActivityLogs\n| where RequestMethod == \"POST\"\n| where RequestUri has \"oauth2PermissionGrants\"\n| where ResponseStatusCode in (200, 201)\n| project TimeGenerated, UserId, AppId, IPAddress, RequestUri, ResponseStatusCode\n// Enrich UserId against your privileged-role list; grants from standard users\n// - or from hosting / proxy ASNs - are the ones to surface.\n"
+      "content": "// UMBRASEC sigma-pack - OAuth consent phishing (T1528), detection 2 of 3\n// The moment a delegated permission grant is created via Microsoft Graph\n// Source writeup: https://umbrasec.dev/research/detecting-oauth-consent-phishing.html\n// Tuning: your own admins legitimately create grants during app onboarding.\n// Scope this to actors outside your identity/app-admin roles, or correlate\n// the source IP against known administrative networks.\nMicrosoftGraphActivityLogs\n| where RequestMethod == \"POST\"\n| where RequestUri has \"oauth2PermissionGrants\"\n| where ResponseStatusCode in (200, 201)\n| project TimeGenerated, UserId, AppId, IPAddress, RequestUri, ResponseStatusCode\n// Enrich UserId against your privileged-role list; grants from standard users\n// - or from hosting / proxy ASNs - are the ones to surface.\n",
+      "claims": {
+        "status": "not-executed",
+        "counts": {
+          "blind-spot": 0,
+          "catches": 1,
+          "excluded": 0,
+          "false-positive": 0,
+          "near-miss": 2,
+          "undocumented": 0
+        },
+        "passed": 0,
+        "total": 3,
+        "blindSpots": [],
+        "falsePositives": [],
+        "findings": [],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/oauth2-permission-grant-post.yml",
+        "engine": "kusto"
+      }
     },
     {
       "id": "litellm-proxy-spawns-shell",
@@ -98,7 +157,34 @@
         "Scope to LiteLLM hosts/containers to cut generic python parent noise"
       ],
       "writeup": "https://umbrasec.dev/research/detecting-litellm-command-injection.html",
-      "content": "title: LiteLLM Proxy Spawning Shell or Recon Utility\nid: 7b3a1f02-9c5d-4e88-a1b6-2f4c7d9e0a13\nstatus: experimental\ndescription: >\n    The LiteLLM proxy process (Python/uvicorn/gunicorn) spawned a shell\n    or a common recon/download utility. A web proxy has no legitimate\n    reason to do this; consistent with exploitation of CVE-2026-42271,\n    where the MCP stdio preview endpoints spawn an attacker-supplied\n    command on the proxy host.\nreferences:\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-42271\n    - https://github.com/BerriAI/litellm/security/advisories/GHSA-v4p8-mg3p-g94g\n    - https://umbrasec.dev/research/detecting-litellm-command-injection.html\nauthor: UMBRASEC\ndate: 2026-06-13\ntags:\n    - attack.initial-access\n    - attack.t1190\n    - attack.execution\n    - attack.t1059\nlogsource:\n    category: process_creation\n    product: linux\ndetection:\n    selection_parent:\n        ParentImage|endswith:\n            - '/python'\n            - '/python3'\n            - '/uvicorn'\n            - '/gunicorn'\n    selection_child:\n        Image|endswith:\n            - '/sh'\n            - '/bash'\n            - '/dash'\n            - '/curl'\n            - '/wget'\n            - '/nc'\n            - '/ncat'\n            - '/nohup'\n    condition: selection_parent and selection_child\nfalsepositives:\n    - Init/entrypoint scripts that legitimately shell out at container start\n    - Health-check or sidecar tooling that wraps the proxy in a shell\n    - Scope to LiteLLM hosts/containers to cut generic python parent noise\nlevel: high\n"
+      "content": "title: LiteLLM Proxy Spawning Shell or Recon Utility\nid: 7b3a1f02-9c5d-4e88-a1b6-2f4c7d9e0a13\nstatus: experimental\ndescription: >\n    The LiteLLM proxy process (Python/uvicorn/gunicorn) spawned a shell\n    or a common recon/download utility. A web proxy has no legitimate\n    reason to do this; consistent with exploitation of CVE-2026-42271,\n    where the MCP stdio preview endpoints spawn an attacker-supplied\n    command on the proxy host.\nreferences:\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-42271\n    - https://github.com/BerriAI/litellm/security/advisories/GHSA-v4p8-mg3p-g94g\n    - https://umbrasec.dev/research/detecting-litellm-command-injection.html\nauthor: UMBRASEC\ndate: 2026-06-13\ntags:\n    - attack.initial-access\n    - attack.t1190\n    - attack.execution\n    - attack.t1059\nlogsource:\n    category: process_creation\n    product: linux\ndetection:\n    selection_parent:\n        ParentImage|endswith:\n            - '/python'\n            - '/python3'\n            - '/uvicorn'\n            - '/gunicorn'\n    selection_child:\n        Image|endswith:\n            - '/sh'\n            - '/bash'\n            - '/dash'\n            - '/curl'\n            - '/wget'\n            - '/nc'\n            - '/ncat'\n            - '/nohup'\n    condition: selection_parent and selection_child\nfalsepositives:\n    - Init/entrypoint scripts that legitimately shell out at container start\n    - Health-check or sidecar tooling that wraps the proxy in a shell\n    - Scope to LiteLLM hosts/containers to cut generic python parent noise\nlevel: high\n",
+      "claims": {
+        "status": "verified",
+        "counts": {
+          "blind-spot": 0,
+          "catches": 2,
+          "excluded": 0,
+          "false-positive": 2,
+          "near-miss": 2,
+          "undocumented": 0
+        },
+        "passed": 6,
+        "total": 6,
+        "blindSpots": [],
+        "falsePositives": [
+          {
+            "id": "false-positive/entrypoint-script",
+            "quote": "Init/entrypoint scripts that legitimately shell out at container start"
+          },
+          {
+            "id": "false-positive/health-check-tooling",
+            "quote": "Health-check or sidecar tooling that wraps the proxy in a shell"
+          }
+        ],
+        "findings": [],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/litellm-proxy-spawns-shell.yml",
+        "engine": "sigma"
+      }
     },
     {
       "id": "litellm-stealer-files-linux",
@@ -127,7 +213,39 @@
         "An analyst or test harness recreating the indicator files to exercise this rule"
       ],
       "writeup": null,
-      "content": "title: LiteLLM 1.107.0 Credential Stealer Dropped on Linux Host\nid: 4b113653-9759-4c81-9fe0-eb8df655df30\nstatus: experimental\ndescription: >\n    The compromised LiteLLM 1.107.0 release (PyPI wheels live 11:39-13:23\n    UTC on 21 Oct 2026, and the v1.107.0, latest, main-latest and\n    main-stable Docker/GHCR tags) drops cook.pth and cook.py into the\n    site-packages root (dist-packages on Debian and Ubuntu system Python)\n    so that every Python start - pip included - reruns a credential\n    stealer. The .pth/.py pair and the compiled .pyc show the poisoned\n    release was installed. The stealer works out of /tmp/.pc_sq_* and\n    /tmp/.pc_e_* directories, writes a run-once marker under /tmp once\n    exfiltration succeeds, and a detached loader daemon holds\n    /tmp/remote_code_loader.lock; any of those shows it ran. No path is\n    anchored to the start so that host sensors on a Docker or\n    Kubernetes node, which see container writes under the overlay or\n    rootfs path, still fire. The release also drops sitecustomize.py (the\n    loader for the never-activated second stage) beside the hook, but\n    distributions and deployments ship legitimate sitecustomize.py files,\n    so that name is left to a hunt: look for one created within a minute\n    of cook.pth.\nreferences:\n    - https://docs.litellm.ai/blog/security-incident-oct-21-2026\n    - https://www.wiz.io/blog/litellm-compromised-steals-credentials\n    - https://www.stepsecurity.io/blog/litellm-1-107-0-compromised-pypi-backdoored-wheels-credential-stealer\nauthor: UMBRASEC\ndate: 2026-10-23\ntags:\n    - attack.initial-access\n    - attack.t1195.002\n    - attack.persistence\n    - attack.t1546\n    - attack.credential-access\n    - attack.t1552\nlogsource:\n    category: file_event\n    product: linux\ndetection:\n    selection_hook:\n        TargetFilename|endswith:\n            - '/site-packages/cook.pth'\n            - '/site-packages/cook.py'\n            - '/dist-packages/cook.pth'\n            - '/dist-packages/cook.py'\n    selection_pyc:\n        TargetFilename|contains:\n            - '/site-packages/__pycache__/cook.'\n            - '/dist-packages/__pycache__/cook.'\n    selection_tmp:\n        TargetFilename|endswith:\n            - '/tmp/.pc_once_72129118c59f5636c0bb'\n            - '/tmp/remote_code_loader.lock'\n    selection_temp_dirs:\n        TargetFilename|contains:\n            - '/tmp/.pc_sq_'\n            - '/tmp/.pc_e_'\n    condition: 1 of selection_*\nfalsepositives:\n    - Unlikely. A legitimate package that ships a module named cook with a .pth hook would collide on the first two selections; check the package metadata before closing\n    - An analyst or test harness recreating the indicator files to exercise this rule\nlevel: high\n"
+      "content": "title: LiteLLM 1.107.0 Credential Stealer Dropped on Linux Host\nid: 4b113653-9759-4c81-9fe0-eb8df655df30\nstatus: experimental\ndescription: >\n    The compromised LiteLLM 1.107.0 release (PyPI wheels live 11:39-13:23\n    UTC on 21 Oct 2026, and the v1.107.0, latest, main-latest and\n    main-stable Docker/GHCR tags) drops cook.pth and cook.py into the\n    site-packages root (dist-packages on Debian and Ubuntu system Python)\n    so that every Python start - pip included - reruns a credential\n    stealer. The .pth/.py pair and the compiled .pyc show the poisoned\n    release was installed. The stealer works out of /tmp/.pc_sq_* and\n    /tmp/.pc_e_* directories, writes a run-once marker under /tmp once\n    exfiltration succeeds, and a detached loader daemon holds\n    /tmp/remote_code_loader.lock; any of those shows it ran. No path is\n    anchored to the start so that host sensors on a Docker or\n    Kubernetes node, which see container writes under the overlay or\n    rootfs path, still fire. The release also drops sitecustomize.py (the\n    loader for the never-activated second stage) beside the hook, but\n    distributions and deployments ship legitimate sitecustomize.py files,\n    so that name is left to a hunt: look for one created within a minute\n    of cook.pth.\nreferences:\n    - https://docs.litellm.ai/blog/security-incident-oct-21-2026\n    - https://www.wiz.io/blog/litellm-compromised-steals-credentials\n    - https://www.stepsecurity.io/blog/litellm-1-107-0-compromised-pypi-backdoored-wheels-credential-stealer\nauthor: UMBRASEC\ndate: 2026-10-23\ntags:\n    - attack.initial-access\n    - attack.t1195.002\n    - attack.persistence\n    - attack.t1546\n    - attack.credential-access\n    - attack.t1552\nlogsource:\n    category: file_event\n    product: linux\ndetection:\n    selection_hook:\n        TargetFilename|endswith:\n            - '/site-packages/cook.pth'\n            - '/site-packages/cook.py'\n            - '/dist-packages/cook.pth'\n            - '/dist-packages/cook.py'\n    selection_pyc:\n        TargetFilename|contains:\n            - '/site-packages/__pycache__/cook.'\n            - '/dist-packages/__pycache__/cook.'\n    selection_tmp:\n        TargetFilename|endswith:\n            - '/tmp/.pc_once_72129118c59f5636c0bb'\n            - '/tmp/remote_code_loader.lock'\n    selection_temp_dirs:\n        TargetFilename|contains:\n            - '/tmp/.pc_sq_'\n            - '/tmp/.pc_e_'\n    condition: 1 of selection_*\nfalsepositives:\n    - Unlikely. A legitimate package that ships a module named cook with a .pth hook would collide on the first two selections; check the package metadata before closing\n    - An analyst or test harness recreating the indicator files to exercise this rule\nlevel: high\n",
+      "claims": {
+        "status": "verified",
+        "counts": {
+          "blind-spot": 1,
+          "catches": 6,
+          "excluded": 0,
+          "false-positive": 2,
+          "near-miss": 1,
+          "undocumented": 0
+        },
+        "passed": 10,
+        "total": 10,
+        "blindSpots": [
+          {
+            "id": "blind-spot/sitecustomize",
+            "quote": "so that name is left to a hunt"
+          }
+        ],
+        "falsePositives": [
+          {
+            "id": "false-positive/package-named-cook",
+            "quote": "A legitimate package that ships a module named cook with a .pth hook would collide on the first two selections"
+          },
+          {
+            "id": "false-positive/analyst-recreation",
+            "quote": "An analyst or test harness recreating the indicator files to exercise this rule"
+          }
+        ],
+        "findings": [],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/litellm-stealer-files-linux.yml",
+        "engine": "sigma"
+      }
     },
     {
       "id": "litellm-mcp-test-endpoint",
@@ -152,7 +270,34 @@
         "Vulnerability scanners probing the path after public disclosure"
       ],
       "writeup": "https://umbrasec.dev/research/detecting-litellm-command-injection.html",
-      "content": "title: LiteLLM MCP Test Endpoint Requested\nid: 2c8e5b41-6d77-4a90-bb1e-3f0a9c2d4e56\nstatus: experimental\ndescription: >\n    A request hit one of LiteLLM's MCP preview endpoints. These accept a\n    full MCP server config and, for the stdio transport, spawn the\n    supplied command on the proxy host (CVE-2026-42271). They are an\n    admin-only preview feature, so requests - especially from untrusted\n    sources - warrant review. Chained with CVE-2026-48710 (Starlette\n    BadHost) the path becomes unauthenticated RCE.\nreferences:\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-42271\n    - https://github.com/BerriAI/litellm/security/advisories/GHSA-v4p8-mg3p-g94g\n    - https://umbrasec.dev/research/detecting-litellm-command-injection.html\nauthor: UMBRASEC\ndate: 2026-06-13\ntags:\n    - attack.initial-access\n    - attack.t1190\nlogsource:\n    category: webserver\ndetection:\n    selection:\n        cs-method: 'POST'\n        cs-uri-stem|contains:\n            - '/mcp-rest/test/connection'\n            - '/mcp-rest/test/tools/list'\n    condition: selection\nfalsepositives:\n    - An administrator legitimately previewing an MCP server in the LiteLLM UI\n    - Vulnerability scanners probing the path after public disclosure\nlevel: medium\n"
+      "content": "title: LiteLLM MCP Test Endpoint Requested\nid: 2c8e5b41-6d77-4a90-bb1e-3f0a9c2d4e56\nstatus: experimental\ndescription: >\n    A request hit one of LiteLLM's MCP preview endpoints. These accept a\n    full MCP server config and, for the stdio transport, spawn the\n    supplied command on the proxy host (CVE-2026-42271). They are an\n    admin-only preview feature, so requests - especially from untrusted\n    sources - warrant review. Chained with CVE-2026-48710 (Starlette\n    BadHost) the path becomes unauthenticated RCE.\nreferences:\n    - https://nvd.nist.gov/vuln/detail/CVE-2026-42271\n    - https://github.com/BerriAI/litellm/security/advisories/GHSA-v4p8-mg3p-g94g\n    - https://umbrasec.dev/research/detecting-litellm-command-injection.html\nauthor: UMBRASEC\ndate: 2026-06-13\ntags:\n    - attack.initial-access\n    - attack.t1190\nlogsource:\n    category: webserver\ndetection:\n    selection:\n        cs-method: 'POST'\n        cs-uri-stem|contains:\n            - '/mcp-rest/test/connection'\n            - '/mcp-rest/test/tools/list'\n    condition: selection\nfalsepositives:\n    - An administrator legitimately previewing an MCP server in the LiteLLM UI\n    - Vulnerability scanners probing the path after public disclosure\nlevel: medium\n",
+      "claims": {
+        "status": "verified",
+        "counts": {
+          "blind-spot": 0,
+          "catches": 2,
+          "excluded": 0,
+          "false-positive": 2,
+          "near-miss": 2,
+          "undocumented": 0
+        },
+        "passed": 6,
+        "total": 6,
+        "blindSpots": [],
+        "falsePositives": [
+          {
+            "id": "false-positive/admin-preview",
+            "quote": "An administrator legitimately previewing an MCP server in the LiteLLM UI"
+          },
+          {
+            "id": "false-positive/scanner",
+            "quote": "Vulnerability scanners probing the path after public disclosure"
+          }
+        ],
+        "findings": [],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/litellm-mcp-test-endpoint.yml",
+        "engine": "sigma"
+      }
     },
     {
       "id": "litellm-stealer-exfil",
@@ -177,7 +322,30 @@
         "If the domain ever changes hands, retire the rule. The signal is the domain, not behaviour"
       ],
       "writeup": null,
-      "content": "title: LiteLLM 1.107.0 Stealer Exfiltration to Lookalike Domain\nid: 6f6f10d8-c46a-46dc-89ad-c5b9a800ee72\nstatus: experimental\ndescription: >\n    The credential stealer shipped in the compromised LiteLLM 1.107.0\n    release POSTs its encrypted bundle (cloud, AI-provider, browser, SSH\n    and GPG credentials, plus rows from the proxy's\n    LiteLLM_CredentialsTable) to www.litellm.dev/healthcheck. litellm.dev\n    is an attacker-controlled lookalike; the project's real domains are\n    litellm.ai and docs.litellm.ai, so any request to it from your estate\n    is worth a ticket. Where your proxy retains request headers, the\n    hardcoded \"X-Token: XWiA8gZNa7NcX2XRoAEb\" header and an Internet\n    Explorer 7 user agent on a POST from a Python host confirm it. The\n    second stage read a domain from a GitHub dead drop\n    (letters9813/pythonclient-test) and would have fetched\n    http://<domain>/codepy; the repo is gone and the drop was never\n    populated beyond test values, so it is not matched here. The URI\n    selection is a fallback for proxies that log the host with a port or\n    only log the full URL.\nreferences:\n    - https://docs.litellm.ai/blog/security-incident-oct-21-2026\n    - https://www.wiz.io/blog/litellm-compromised-steals-credentials\n    - https://litellm.ai\nauthor: UMBRASEC\ndate: 2026-10-23\ntags:\n    - attack.exfiltration\n    - attack.t1041\nlogsource:\n    category: proxy\ndetection:\n    selection_host:\n        cs-host: 'litellm.dev'\n    selection_subdomain:\n        cs-host|endswith: '.litellm.dev'\n    selection_uri:\n        c-uri|contains:\n            - '//litellm.dev'\n            - '//www.litellm.dev'\n    condition: 1 of selection_*\nfalsepositives:\n    - Analysts or sandboxes deliberately resolving or fetching the indicator\n    - If the domain ever changes hands, retire the rule. The signal is the domain, not behaviour\nlevel: high\n"
+      "content": "title: LiteLLM 1.107.0 Stealer Exfiltration to Lookalike Domain\nid: 6f6f10d8-c46a-46dc-89ad-c5b9a800ee72\nstatus: experimental\ndescription: >\n    The credential stealer shipped in the compromised LiteLLM 1.107.0\n    release POSTs its encrypted bundle (cloud, AI-provider, browser, SSH\n    and GPG credentials, plus rows from the proxy's\n    LiteLLM_CredentialsTable) to www.litellm.dev/healthcheck. litellm.dev\n    is an attacker-controlled lookalike; the project's real domains are\n    litellm.ai and docs.litellm.ai, so any request to it from your estate\n    is worth a ticket. Where your proxy retains request headers, the\n    hardcoded \"X-Token: XWiA8gZNa7NcX2XRoAEb\" header and an Internet\n    Explorer 7 user agent on a POST from a Python host confirm it. The\n    second stage read a domain from a GitHub dead drop\n    (letters9813/pythonclient-test) and would have fetched\n    http://<domain>/codepy; the repo is gone and the drop was never\n    populated beyond test values, so it is not matched here. The URI\n    selection is a fallback for proxies that log the host with a port or\n    only log the full URL.\nreferences:\n    - https://docs.litellm.ai/blog/security-incident-oct-21-2026\n    - https://www.wiz.io/blog/litellm-compromised-steals-credentials\n    - https://litellm.ai\nauthor: UMBRASEC\ndate: 2026-10-23\ntags:\n    - attack.exfiltration\n    - attack.t1041\nlogsource:\n    category: proxy\ndetection:\n    selection_host:\n        cs-host: 'litellm.dev'\n    selection_subdomain:\n        cs-host|endswith: '.litellm.dev'\n    selection_uri:\n        c-uri|contains:\n            - '//litellm.dev'\n            - '//www.litellm.dev'\n    condition: 1 of selection_*\nfalsepositives:\n    - Analysts or sandboxes deliberately resolving or fetching the indicator\n    - If the domain ever changes hands, retire the rule. The signal is the domain, not behaviour\nlevel: high\n",
+      "claims": {
+        "status": "verified",
+        "counts": {
+          "blind-spot": 0,
+          "catches": 4,
+          "excluded": 0,
+          "false-positive": 1,
+          "near-miss": 1,
+          "undocumented": 0
+        },
+        "passed": 6,
+        "total": 6,
+        "blindSpots": [],
+        "falsePositives": [
+          {
+            "id": "false-positive/analyst-sandbox",
+            "quote": "Analysts or sandboxes deliberately resolving or fetching the indicator"
+          }
+        ],
+        "findings": [],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/litellm-stealer-exfil.yml",
+        "engine": "sigma"
+      }
     },
     {
       "id": "metabase-reset-password-sqli",
@@ -203,7 +371,56 @@
         "A password-reset token that legitimately contains a matched character, which is why the markers are matched in the query string rather than across the whole request"
       ],
       "writeup": "https://umbrasec.dev/research/mathspace-metabase-internal-tooling.html",
-      "content": "title: Metabase Password Reset SQL Injection Attempt\nid: fbeecaf9-c9de-4071-b9c6-3576b195e679\nstatus: experimental\ndescription: >\n    A request to Metabase's unauthenticated password-reset endpoint carrying\n    SQL metacharacters. CVE-2026-72898 is an unauthenticated SQL injection in\n    /api/session/reset_password that yields administrator access to the\n    Metabase instance, and through it every database connection that instance\n    holds. Metabase confirmed active exploitation on the day of disclosure,\n    6 August 2026, and CISA added the CVE to the KEV catalog on 11 August.\n    The vendor's own interim workaround is to block this endpoint outright, so\n    on a patched and hardened instance any match here is worth review.\n    Limitation: this matches metacharacters in the request line only. An\n    exploit that carries its payload in the POST body is invisible to\n    webserver-category logs, so pair this with body-capturing proxy or WAF\n    logs and with the volume hunt in the writeup.\nreferences:\n    - https://github.com/metabase/metabase/security/advisories/GHSA-vwf4-m7j8-wcjf\n    - https://www.cve.org/CVERecord?id=CVE-2026-72898\n    - https://attack.mitre.org/techniques/T1190/\n    - https://umbrasec.dev/research/mathspace-metabase-internal-tooling.html\nauthor: UMBRASEC\ndate: 2026-09-17\ntags:\n    - attack.initial-access\n    - attack.t1190\nlogsource:\n    category: webserver\ndetection:\n    endpoint:\n        cs-uri-stem|contains: '/api/session/reset_password'\n    sqli_markers:\n        cs-uri-query|contains:\n            - ''''\n            - ' or '\n            - ' and '\n            - 'union'\n            - 'select'\n            - 'sleep('\n            - 'pg_sleep'\n            - '--'\n            - '/*'\n            - ';'\n    condition: endpoint and sqli_markers\nfalsepositives:\n    - Vulnerability scanners probing the path after public disclosure\n    - Authorised security testing against the patched endpoint\n    - A password-reset token that legitimately contains a matched character,\n      which is why the markers are matched in the query string rather than\n      across the whole request\nlevel: high\n"
+      "content": "title: Metabase Password Reset SQL Injection Attempt\nid: fbeecaf9-c9de-4071-b9c6-3576b195e679\nstatus: experimental\ndescription: >\n    A request to Metabase's unauthenticated password-reset endpoint carrying\n    SQL metacharacters. CVE-2026-72898 is an unauthenticated SQL injection in\n    /api/session/reset_password that yields administrator access to the\n    Metabase instance, and through it every database connection that instance\n    holds. Metabase confirmed active exploitation on the day of disclosure,\n    6 August 2026, and CISA added the CVE to the KEV catalog on 11 August.\n    The vendor's own interim workaround is to block this endpoint outright, so\n    on a patched and hardened instance any match here is worth review.\n    Limitation: this matches metacharacters in the request line only. An\n    exploit that carries its payload in the POST body is invisible to\n    webserver-category logs, so pair this with body-capturing proxy or WAF\n    logs and with the volume hunt in the writeup.\nreferences:\n    - https://github.com/metabase/metabase/security/advisories/GHSA-vwf4-m7j8-wcjf\n    - https://www.cve.org/CVERecord?id=CVE-2026-72898\n    - https://attack.mitre.org/techniques/T1190/\n    - https://umbrasec.dev/research/mathspace-metabase-internal-tooling.html\nauthor: UMBRASEC\ndate: 2026-09-17\ntags:\n    - attack.initial-access\n    - attack.t1190\nlogsource:\n    category: webserver\ndetection:\n    endpoint:\n        cs-uri-stem|contains: '/api/session/reset_password'\n    sqli_markers:\n        cs-uri-query|contains:\n            - ''''\n            - ' or '\n            - ' and '\n            - 'union'\n            - 'select'\n            - 'sleep('\n            - 'pg_sleep'\n            - '--'\n            - '/*'\n            - ';'\n    condition: endpoint and sqli_markers\nfalsepositives:\n    - Vulnerability scanners probing the path after public disclosure\n    - Authorised security testing against the patched endpoint\n    - A password-reset token that legitimately contains a matched character,\n      which is why the markers are matched in the query string rather than\n      across the whole request\nlevel: high\n",
+      "claims": {
+        "status": "verified",
+        "counts": {
+          "blind-spot": 1,
+          "catches": 3,
+          "excluded": 1,
+          "false-positive": 3,
+          "near-miss": 2,
+          "undocumented": 2
+        },
+        "passed": 12,
+        "total": 12,
+        "blindSpots": [
+          {
+            "id": "blind-spot/post-body",
+            "quote": "An exploit that carries its payload in the POST body is invisible to webserver-category logs"
+          }
+        ],
+        "falsePositives": [
+          {
+            "id": "false-positive/scanner",
+            "quote": "Vulnerability scanners probing the path after public disclosure"
+          },
+          {
+            "id": "false-positive/authorised-testing",
+            "quote": "Authorised security testing against the patched endpoint"
+          },
+          {
+            "id": "false-positive/token-with-matched-character",
+            "quote": "A password-reset token that legitimately contains a matched character"
+          }
+        ],
+        "findings": [
+          {
+            "id": "undocumented/slash-is-a-wildcard",
+            "summary": "'/*' is a Sigma wildcard, so any '/' in the query string matches (pySigma compiles it to LIKE '%/%'). Escaping it as '/\\*' matches the comment opener only.",
+            "confidence": "confirmed",
+            "upstream": "https://github.com/umbrasec-labs/umbrasec.dev/issues/3"
+          },
+          {
+            "id": "undocumented/select-substring",
+            "summary": "'select' is matched as a substring, so a benign word such as 'selection' in the query string fires. Whether real reset links carry such words depends on the deployment.",
+            "confidence": "needs-telemetry",
+            "upstream": "pending"
+          }
+        ],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/metabase-reset-password-sqli.yml",
+        "engine": "sigma"
+      }
     },
     {
       "id": "cloudflared-tunnel-service-install",
@@ -230,7 +447,34 @@
         "A sanctioned vendor or MSP deploying Cloudflare Tunnel for remote support"
       ],
       "writeup": "https://umbrasec.dev/research/n-able-ncentral-msp-supply-chain.html",
-      "content": "title: Cloudflare Tunnel Service Installed\nid: bf3f2f8a-f904-4978-9ff1-6dc3c79a2afb\nstatus: experimental\ndescription: >\n    A Windows service was created for cloudflared, the Cloudflare Tunnel\n    client. A tunnel client gives an operator inbound reach to a host without\n    any inbound firewall rule, and it keeps working after whatever access\n    established it has been revoked. Observed in the August 2026 N-able\n    N-central intrusions, where a service named Cloudflared was registered on\n    managed endpoints specifically to hold access after N-central credentials\n    were revoked.\nreferences:\n    - https://attack.mitre.org/techniques/T1543/003/\n    - https://attack.mitre.org/techniques/T1572/\n    - https://www.n-able.com/blog/n-central-security-update-august-6-2026\n    - https://umbrasec.dev/research/n-able-ncentral-msp-supply-chain.html\nauthor: UMBRASEC\ndate: 2026-08-12\ntags:\n    - attack.persistence\n    - attack.t1543.003\n    - attack.command-and-control\n    - attack.t1572\nlogsource:\n    product: windows\n    service: system\ndetection:\n    selection_name:\n        EventID: 7045\n        ServiceName|contains: 'cloudflared'\n    selection_image:\n        EventID: 7045\n        ImagePath|contains: 'cloudflared'\n    condition: 1 of selection_*\nfalsepositives:\n    - Cloudflare Tunnel is legitimate dual-use software. If your organisation\n      deploys it deliberately, allowlist the known install path and service\n      account and alert only on installs outside it\n    - A sanctioned vendor or MSP deploying Cloudflare Tunnel for remote support\nlevel: medium\n"
+      "content": "title: Cloudflare Tunnel Service Installed\nid: bf3f2f8a-f904-4978-9ff1-6dc3c79a2afb\nstatus: experimental\ndescription: >\n    A Windows service was created for cloudflared, the Cloudflare Tunnel\n    client. A tunnel client gives an operator inbound reach to a host without\n    any inbound firewall rule, and it keeps working after whatever access\n    established it has been revoked. Observed in the August 2026 N-able\n    N-central intrusions, where a service named Cloudflared was registered on\n    managed endpoints specifically to hold access after N-central credentials\n    were revoked.\nreferences:\n    - https://attack.mitre.org/techniques/T1543/003/\n    - https://attack.mitre.org/techniques/T1572/\n    - https://www.n-able.com/blog/n-central-security-update-august-6-2026\n    - https://umbrasec.dev/research/n-able-ncentral-msp-supply-chain.html\nauthor: UMBRASEC\ndate: 2026-08-12\ntags:\n    - attack.persistence\n    - attack.t1543.003\n    - attack.command-and-control\n    - attack.t1572\nlogsource:\n    product: windows\n    service: system\ndetection:\n    selection_name:\n        EventID: 7045\n        ServiceName|contains: 'cloudflared'\n    selection_image:\n        EventID: 7045\n        ImagePath|contains: 'cloudflared'\n    condition: 1 of selection_*\nfalsepositives:\n    - Cloudflare Tunnel is legitimate dual-use software. If your organisation\n      deploys it deliberately, allowlist the known install path and service\n      account and alert only on installs outside it\n    - A sanctioned vendor or MSP deploying Cloudflare Tunnel for remote support\nlevel: medium\n",
+      "claims": {
+        "status": "verified",
+        "counts": {
+          "blind-spot": 0,
+          "catches": 2,
+          "excluded": 0,
+          "false-positive": 2,
+          "near-miss": 2,
+          "undocumented": 0
+        },
+        "passed": 6,
+        "total": 6,
+        "blindSpots": [],
+        "falsePositives": [
+          {
+            "id": "false-positive/sanctioned-deployment",
+            "quote": "Cloudflare Tunnel is legitimate dual-use software. If your organisation deploys it deliberately"
+          },
+          {
+            "id": "false-positive/msp-remote-support",
+            "quote": "A sanctioned vendor or MSP deploying Cloudflare Tunnel for remote support"
+          }
+        ],
+        "findings": [],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/cloudflared-tunnel-service-install.yml",
+        "engine": "sigma"
+      }
     },
     {
       "id": "kerberoasting-honeypot-spn",
@@ -255,7 +499,30 @@
         "A misconfigured scanner that was pointed at the decoy (investigate anyway)"
       ],
       "writeup": "https://umbrasec.dev/research/detecting-kerberoasting.html",
-      "content": "title: Kerberoasting - Honeypot SPN Ticket Requested\nid: 3e1f6d99-4a77-4123-dd5c-8f0a1b2c3d44\nstatus: experimental\ndescription: >\n    A Kerberos service ticket (4769) was requested for a decoy service\n    account that no legitimate workload uses. Any hit is high-confidence\n    evidence of SPN enumeration / Kerberoasting.\nreferences:\n    - https://attack.mitre.org/techniques/T1558/003/\n    - https://umbrasec.dev/research/detecting-kerberoasting.html\nauthor: UMBRASEC\ndate: 2026-06-10\ntags:\n    - attack.credential-access\n    - attack.t1558.003\n    - attack.deception\nlogsource:\n    product: windows\n    service: security\ndetection:\n    selection:\n        EventID: 4769\n        ServiceName: 'svc-honeypot-sql'   # <-- your decoy sAMAccountName\n    condition: selection\nfalsepositives:\n    - A misconfigured scanner that was pointed at the decoy (investigate anyway)\nlevel: high\n"
+      "content": "title: Kerberoasting - Honeypot SPN Ticket Requested\nid: 3e1f6d99-4a77-4123-dd5c-8f0a1b2c3d44\nstatus: experimental\ndescription: >\n    A Kerberos service ticket (4769) was requested for a decoy service\n    account that no legitimate workload uses. Any hit is high-confidence\n    evidence of SPN enumeration / Kerberoasting.\nreferences:\n    - https://attack.mitre.org/techniques/T1558/003/\n    - https://umbrasec.dev/research/detecting-kerberoasting.html\nauthor: UMBRASEC\ndate: 2026-06-10\ntags:\n    - attack.credential-access\n    - attack.t1558.003\n    - attack.deception\nlogsource:\n    product: windows\n    service: security\ndetection:\n    selection:\n        EventID: 4769\n        ServiceName: 'svc-honeypot-sql'   # <-- your decoy sAMAccountName\n    condition: selection\nfalsepositives:\n    - A misconfigured scanner that was pointed at the decoy (investigate anyway)\nlevel: high\n",
+      "claims": {
+        "status": "verified",
+        "counts": {
+          "blind-spot": 0,
+          "catches": 3,
+          "excluded": 0,
+          "false-positive": 1,
+          "near-miss": 1,
+          "undocumented": 0
+        },
+        "passed": 5,
+        "total": 5,
+        "blindSpots": [],
+        "falsePositives": [
+          {
+            "id": "false-positive/misconfigured-scanner",
+            "quote": "A misconfigured scanner that was pointed at the decoy"
+          }
+        ],
+        "findings": [],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/kerberoasting-honeypot-spn.yml",
+        "engine": "sigma"
+      }
     },
     {
       "id": "kerberoasting-rc4-service-ticket",
@@ -281,7 +548,43 @@
         "Accounts whose msDS-SupportedEncryptionTypes still allow only RC4"
       ],
       "writeup": "https://umbrasec.dev/research/detecting-kerberoasting.html",
-      "content": "title: Kerberoasting - RC4 Service Ticket Requested\nid: 8f1e2c33-6a4b-4d9e-9a1f-2b7c0d5e4a10\nstatus: experimental\ndescription: >\n    A Kerberos TGS (Event 4769) was issued using RC4-HMAC encryption.\n    In AES-capable domains this is a common indicator of Kerberoasting,\n    where tooling downgrades to RC4 to ease offline cracking.\nreferences:\n    - https://attack.mitre.org/techniques/T1558/003/\n    - https://umbrasec.dev/research/detecting-kerberoasting.html\nauthor: UMBRASEC\ndate: 2026-06-10\ntags:\n    - attack.credential-access\n    - attack.t1558.003\nlogsource:\n    product: windows\n    service: security\ndetection:\n    selection:\n        EventID: 4769\n        TicketEncryptionType: '0x17'   # RC4-HMAC\n        TicketOptions: '0x40810000'     # see tuning note - remove if too narrow\n        Status: '0x0'                   # only count successfully issued tickets\n    filter_machine:\n        ServiceName|endswith: '$'\n    filter_krbtgt:\n        ServiceName: 'krbtgt'\n    condition: selection and not 1 of filter_*\nfalsepositives:\n    - Legacy applications or appliances that genuinely require RC4\n    - Some Linux/macOS or third-party Kerberos clients\n    - Accounts whose msDS-SupportedEncryptionTypes still allow only RC4\nlevel: medium\n"
+      "content": "title: Kerberoasting - RC4 Service Ticket Requested\nid: 8f1e2c33-6a4b-4d9e-9a1f-2b7c0d5e4a10\nstatus: experimental\ndescription: >\n    A Kerberos TGS (Event 4769) was issued using RC4-HMAC encryption.\n    In AES-capable domains this is a common indicator of Kerberoasting,\n    where tooling downgrades to RC4 to ease offline cracking.\nreferences:\n    - https://attack.mitre.org/techniques/T1558/003/\n    - https://umbrasec.dev/research/detecting-kerberoasting.html\nauthor: UMBRASEC\ndate: 2026-06-10\ntags:\n    - attack.credential-access\n    - attack.t1558.003\nlogsource:\n    product: windows\n    service: security\ndetection:\n    selection:\n        EventID: 4769\n        TicketEncryptionType: '0x17'   # RC4-HMAC\n        TicketOptions: '0x40810000'     # see tuning note - remove if too narrow\n        Status: '0x0'                   # only count successfully issued tickets\n    filter_machine:\n        ServiceName|endswith: '$'\n    filter_krbtgt:\n        ServiceName: 'krbtgt'\n    condition: selection and not 1 of filter_*\nfalsepositives:\n    - Legacy applications or appliances that genuinely require RC4\n    - Some Linux/macOS or third-party Kerberos clients\n    - Accounts whose msDS-SupportedEncryptionTypes still allow only RC4\nlevel: medium\n",
+      "claims": {
+        "status": "verified",
+        "counts": {
+          "blind-spot": 1,
+          "catches": 1,
+          "excluded": 1,
+          "false-positive": 3,
+          "near-miss": 3,
+          "undocumented": 0
+        },
+        "passed": 9,
+        "total": 9,
+        "blindSpots": [
+          {
+            "id": "blind-spot/ticket-options-vary",
+            "quote": "The TicketOptions: '0x40810000' line tightens precision but will miss tools that vary their flags."
+          }
+        ],
+        "falsePositives": [
+          {
+            "id": "false-positive/legacy-appliance",
+            "quote": "Legacy applications or appliances that genuinely require RC4"
+          },
+          {
+            "id": "false-positive/non-windows-client",
+            "quote": "Some Linux/macOS or third-party Kerberos clients"
+          },
+          {
+            "id": "false-positive/rc4-only-account",
+            "quote": "Accounts whose msDS-SupportedEncryptionTypes still allow only RC4"
+          }
+        ],
+        "findings": [],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/kerberoasting-rc4-service-ticket.yml",
+        "engine": "sigma"
+      }
     },
     {
       "id": "kerberoasting-spn-fanout",
@@ -303,7 +606,34 @@
       "logsource": "windows / security",
       "falsepositives": [],
       "writeup": "https://umbrasec.dev/research/detecting-kerberoasting.html",
-      "content": "title: Kerberoasting - High Volume of Distinct SPN Requests\nid: 1c9d4b77-2e55-4f01-bb3a-6d8e9f0a1b22\nstatus: experimental\ndescription: >\n    A single account requested Kerberos service tickets (4769) for an\n    unusually large number of distinct service principals in a short\n    window - consistent with bulk Kerberoasting enumeration.\nreferences:\n    - https://attack.mitre.org/techniques/T1558/003/\n    - https://umbrasec.dev/research/detecting-kerberoasting.html\nauthor: UMBRASEC\ndate: 2026-06-10\ntags:\n    - attack.credential-access\n    - attack.t1558.003\ncorrelation:\n    type: value_count\n    rules:\n        - kerberoasting_4769_base\n    group-by:\n        - TargetUserName\n    timespan: 5m\n    condition:\n        gte: 15\n        field: ServiceName\n---\ntitle: Kerberoasting 4769 base\nid: 2d0e5c88-3f66-4012-cc4b-7e9f0a1b2c33\nname: kerberoasting_4769_base\nlogsource:\n    product: windows\n    service: security\ndetection:\n    selection:\n        EventID: 4769\n        Status: '0x0'\n    filter_machine:\n        TargetUserName|endswith: '$'\n    condition: selection and not filter_machine\n"
+      "content": "title: Kerberoasting - High Volume of Distinct SPN Requests\nid: 1c9d4b77-2e55-4f01-bb3a-6d8e9f0a1b22\nstatus: experimental\ndescription: >\n    A single account requested Kerberos service tickets (4769) for an\n    unusually large number of distinct service principals in a short\n    window - consistent with bulk Kerberoasting enumeration.\nreferences:\n    - https://attack.mitre.org/techniques/T1558/003/\n    - https://umbrasec.dev/research/detecting-kerberoasting.html\nauthor: UMBRASEC\ndate: 2026-06-10\ntags:\n    - attack.credential-access\n    - attack.t1558.003\ncorrelation:\n    type: value_count\n    rules:\n        - kerberoasting_4769_base\n    group-by:\n        - TargetUserName\n    timespan: 5m\n    condition:\n        gte: 15\n        field: ServiceName\n---\ntitle: Kerberoasting 4769 base\nid: 2d0e5c88-3f66-4012-cc4b-7e9f0a1b2c33\nname: kerberoasting_4769_base\nlogsource:\n    product: windows\n    service: security\ndetection:\n    selection:\n        EventID: 4769\n        Status: '0x0'\n    filter_machine:\n        TargetUserName|endswith: '$'\n    condition: selection and not filter_machine\n",
+      "claims": {
+        "status": "verified",
+        "counts": {
+          "blind-spot": 2,
+          "catches": 2,
+          "excluded": 0,
+          "false-positive": 0,
+          "near-miss": 4,
+          "undocumented": 0
+        },
+        "passed": 8,
+        "total": 8,
+        "blindSpots": [
+          {
+            "id": "blind-spot/low-and-slow-single-ticket",
+            "quote": "A \"low and slow\" attacker who requests a single high-value ticket and waits will sail past the velocity rule (#2)"
+          },
+          {
+            "id": "blind-spot/fifteen-spns-over-7m30s",
+            "quote": "A \"low and slow\" attacker"
+          }
+        ],
+        "falsePositives": [],
+        "findings": [],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/kerberoasting-spn-fanout.yml",
+        "engine": "sigma"
+      }
     },
     {
       "id": "litellm-stealer-files-windows",
@@ -332,7 +662,34 @@
         "An analyst or test harness recreating the indicator files to exercise this rule"
       ],
       "writeup": null,
-      "content": "title: LiteLLM 1.107.0 Credential Stealer Dropped on Windows Host\nid: 1cc5748a-ebcf-4958-b479-d231563e20e1\nstatus: experimental\ndescription: >\n    Windows twin of litellm-stealer-files-linux. The compromised LiteLLM\n    1.107.0 wheels (PyPI, 21 Oct 2026) carry cook.pth and cook.py - Wiz\n    published separate Windows and Linux/macOS hashes for them - dropped\n    into the site-packages root so that every Python start reruns the\n    credential stealer. The .pth/.py pair and the compiled .pyc show the\n    poisoned release was installed. The stealer works out of .pc_sq_*\n    and .pc_e_* directories in the system temp folder (%TEMP% for a\n    user, C:\\Windows\\Temp for a service), so files written under those\n    show it ran on any Windows host. The /tmp run-once marker usually\n    fails on Windows because the path rarely exists, but where a \\tmp\n    directory is present (Git for Windows, MSYS2) it is written once\n    exfiltration succeeds, so it is matched too. The sitecustomize.py\n    second-stage loader only runs on Linux and macOS.\nreferences:\n    - https://docs.litellm.ai/blog/security-incident-oct-21-2026\n    - https://www.wiz.io/blog/litellm-compromised-steals-credentials\n    - https://www.stepsecurity.io/blog/litellm-1-107-0-compromised-pypi-backdoored-wheels-credential-stealer\nauthor: UMBRASEC\ndate: 2026-10-23\ntags:\n    - attack.initial-access\n    - attack.t1195.002\n    - attack.persistence\n    - attack.t1546\n    - attack.credential-access\n    - attack.t1552\nlogsource:\n    category: file_event\n    product: windows\ndetection:\n    selection_hook:\n        TargetFilename|endswith:\n            - '\\site-packages\\cook.pth'\n            - '\\site-packages\\cook.py'\n    selection_pyc:\n        TargetFilename|contains: '\\site-packages\\__pycache__\\cook.'\n    selection_temp_dirs:\n        TargetFilename|contains:\n            - '\\Temp\\.pc_sq_'\n            - '\\Temp\\.pc_e_'\n    selection_marker:\n        TargetFilename|endswith: '\\tmp\\.pc_once_72129118c59f5636c0bb'\n    condition: 1 of selection_*\nfalsepositives:\n    - Unlikely. A legitimate package that ships a module named cook with a .pth hook would collide; check the package metadata before closing\n    - An analyst or test harness recreating the indicator files to exercise this rule\nlevel: high\n"
+      "content": "title: LiteLLM 1.107.0 Credential Stealer Dropped on Windows Host\nid: 1cc5748a-ebcf-4958-b479-d231563e20e1\nstatus: experimental\ndescription: >\n    Windows twin of litellm-stealer-files-linux. The compromised LiteLLM\n    1.107.0 wheels (PyPI, 21 Oct 2026) carry cook.pth and cook.py - Wiz\n    published separate Windows and Linux/macOS hashes for them - dropped\n    into the site-packages root so that every Python start reruns the\n    credential stealer. The .pth/.py pair and the compiled .pyc show the\n    poisoned release was installed. The stealer works out of .pc_sq_*\n    and .pc_e_* directories in the system temp folder (%TEMP% for a\n    user, C:\\Windows\\Temp for a service), so files written under those\n    show it ran on any Windows host. The /tmp run-once marker usually\n    fails on Windows because the path rarely exists, but where a \\tmp\n    directory is present (Git for Windows, MSYS2) it is written once\n    exfiltration succeeds, so it is matched too. The sitecustomize.py\n    second-stage loader only runs on Linux and macOS.\nreferences:\n    - https://docs.litellm.ai/blog/security-incident-oct-21-2026\n    - https://www.wiz.io/blog/litellm-compromised-steals-credentials\n    - https://www.stepsecurity.io/blog/litellm-1-107-0-compromised-pypi-backdoored-wheels-credential-stealer\nauthor: UMBRASEC\ndate: 2026-10-23\ntags:\n    - attack.initial-access\n    - attack.t1195.002\n    - attack.persistence\n    - attack.t1546\n    - attack.credential-access\n    - attack.t1552\nlogsource:\n    category: file_event\n    product: windows\ndetection:\n    selection_hook:\n        TargetFilename|endswith:\n            - '\\site-packages\\cook.pth'\n            - '\\site-packages\\cook.py'\n    selection_pyc:\n        TargetFilename|contains: '\\site-packages\\__pycache__\\cook.'\n    selection_temp_dirs:\n        TargetFilename|contains:\n            - '\\Temp\\.pc_sq_'\n            - '\\Temp\\.pc_e_'\n    selection_marker:\n        TargetFilename|endswith: '\\tmp\\.pc_once_72129118c59f5636c0bb'\n    condition: 1 of selection_*\nfalsepositives:\n    - Unlikely. A legitimate package that ships a module named cook with a .pth hook would collide; check the package metadata before closing\n    - An analyst or test harness recreating the indicator files to exercise this rule\nlevel: high\n",
+      "claims": {
+        "status": "verified",
+        "counts": {
+          "blind-spot": 0,
+          "catches": 5,
+          "excluded": 0,
+          "false-positive": 2,
+          "near-miss": 1,
+          "undocumented": 0
+        },
+        "passed": 8,
+        "total": 8,
+        "blindSpots": [],
+        "falsePositives": [
+          {
+            "id": "false-positive/package-named-cook",
+            "quote": "A legitimate package that ships a module named cook with a .pth hook would collide"
+          },
+          {
+            "id": "false-positive/analyst-recreation",
+            "quote": "An analyst or test harness recreating the indicator files to exercise this rule"
+          }
+        ],
+        "findings": [],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/litellm-stealer-files-windows.yml",
+        "engine": "sigma"
+      }
     },
     {
       "id": "masquerading-svchost-outside-system32",
@@ -358,7 +715,45 @@
         "Software test harnesses and imaging tools that copy system binaries"
       ],
       "writeup": "https://umbrasec.dev/research/n-able-ncentral-msp-supply-chain.html",
-      "content": "title: Masquerading svchost.exe Outside System32\nid: 1991446b-a433-4c51-97c8-ab493c79afcd\nstatus: experimental\ndescription: >\n    A process named svchost.exe executed from a path outside System32,\n    SysWOW64 or WinSxS. Genuine Windows service hosting only ever runs from\n    those directories, so a match is a strong masquerading signal rather than\n    a behavioural guess. Observed in the August 2026 N-able N-central\n    intrusions, where operators placed svchost.exe in a user's Documents\n    directory on managed endpoints.\nreferences:\n    - https://attack.mitre.org/techniques/T1036/005/\n    - https://www.n-able.com/blog/n-central-security-update-august-6-2026\n    - https://umbrasec.dev/research/n-able-ncentral-msp-supply-chain.html\nauthor: UMBRASEC\ndate: 2026-08-12\ntags:\n    - attack.defense-evasion\n    - attack.t1036.005\nlogsource:\n    category: process_creation\n    product: windows\ndetection:\n    selection:\n        Image|endswith: '\\svchost.exe'\n    filter_windows_paths:\n        Image|startswith:\n            - 'C:\\Windows\\System32\\'\n            - 'C:\\Windows\\SysWOW64\\'\n            - 'C:\\Windows\\WinSxS\\'\n    condition: selection and not 1 of filter_*\nfalsepositives:\n    - Installers or update packages that stage a temporary copy of svchost.exe\n    - Windows installed to a drive or directory other than C:\\Windows - adjust\n      the filter paths to match your build before deploying\n    - Software test harnesses and imaging tools that copy system binaries\nlevel: high\n"
+      "content": "title: Masquerading svchost.exe Outside System32\nid: 1991446b-a433-4c51-97c8-ab493c79afcd\nstatus: experimental\ndescription: >\n    A process named svchost.exe executed from a path outside System32,\n    SysWOW64 or WinSxS. Genuine Windows service hosting only ever runs from\n    those directories, so a match is a strong masquerading signal rather than\n    a behavioural guess. Observed in the August 2026 N-able N-central\n    intrusions, where operators placed svchost.exe in a user's Documents\n    directory on managed endpoints.\nreferences:\n    - https://attack.mitre.org/techniques/T1036/005/\n    - https://www.n-able.com/blog/n-central-security-update-august-6-2026\n    - https://umbrasec.dev/research/n-able-ncentral-msp-supply-chain.html\nauthor: UMBRASEC\ndate: 2026-08-12\ntags:\n    - attack.defense-evasion\n    - attack.t1036.005\nlogsource:\n    category: process_creation\n    product: windows\ndetection:\n    selection:\n        Image|endswith: '\\svchost.exe'\n    filter_windows_paths:\n        Image|startswith:\n            - 'C:\\Windows\\System32\\'\n            - 'C:\\Windows\\SysWOW64\\'\n            - 'C:\\Windows\\WinSxS\\'\n    condition: selection and not 1 of filter_*\nfalsepositives:\n    - Installers or update packages that stage a temporary copy of svchost.exe\n    - Windows installed to a drive or directory other than C:\\Windows - adjust\n      the filter paths to match your build before deploying\n    - Software test harnesses and imaging tools that copy system binaries\nlevel: high\n",
+      "claims": {
+        "status": "verified",
+        "counts": {
+          "blind-spot": 0,
+          "catches": 1,
+          "excluded": 0,
+          "false-positive": 3,
+          "near-miss": 3,
+          "undocumented": 1
+        },
+        "passed": 8,
+        "total": 8,
+        "blindSpots": [],
+        "falsePositives": [
+          {
+            "id": "false-positive/installer-staging",
+            "quote": "Installers or update packages that stage a temporary copy of svchost.exe"
+          },
+          {
+            "id": "false-positive/windows-on-another-drive",
+            "quote": "Windows installed to a drive or directory other than C:\\Windows"
+          },
+          {
+            "id": "false-positive/test-harness-copy",
+            "quote": "Software test harnesses and imaging tools that copy system binaries"
+          }
+        ],
+        "findings": [
+          {
+            "id": "undocumented/nt-device-path",
+            "summary": "The filters are drive-letter paths. A sensor that reports the NT device path of the genuine binary (\\Device\\HarddiskVolume3\\Windows\\System32\\svchost.exe) makes every genuine svchost.exe fire. Whether a given sensor does this depends on the telemetry.",
+            "confidence": "needs-telemetry",
+            "upstream": "pending"
+          }
+        ],
+        "claimsUrl": "https://github.com/umbrasec-labs/detections/blob/main/claims/masquerading-svchost-outside-system32.yml",
+        "engine": "sigma"
+      }
     }
   ],
   "skills": [
