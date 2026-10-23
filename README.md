@@ -251,6 +251,8 @@ the muted eight-hue coding set from v3 so categories and severities stay disting
 ## Changelog
 
 ### v4.2 (unreleased)
+- Security: React Router 7.18.4 (fixes an open redirect via backslash in `<Link>`/`useNavigate`, GHSA-wrjc-x8rr-h8h6), `postcss-selector-parser` pinned to 7.1.6 under Tailwind 3 (GHSA-rj75-hqrm-r3gf, identical CSS output), `yaml` 2.9.1 (GHSA-48c2-rrv3-qjmp); `npm audit` is clean
+- Dependabot config: weekly npm and Actions updates with a 14-day cooldown, security updates grouped
 - IR Runbooks: run any of the 8 flow chains as a live checklist during an incident. Several runs at once, each
   with a title, lead, severity and an elapsed clock
 - Steps follow the chain's path: single successors start automatically, decision steps wait for the analyst to
