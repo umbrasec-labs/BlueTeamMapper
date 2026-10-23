@@ -168,7 +168,11 @@ export const layers: Layer[] = [
   },
 ];
 
-export const layerById: Record<string, Layer> = Object.fromEntries(layers.map((l) => [l.id, l]));
+// Null prototype: ids from a URL such as "toString" find nothing instead of an inherited method.
+export const layerById: Record<string, Layer> = Object.assign(
+  Object.create(null),
+  Object.fromEntries(layers.map((l) => [l.id, l])),
+);
 
 /** Find the layer that renders a given v3 section. */
 export function layerForSection(sectionId: string): Layer | undefined {

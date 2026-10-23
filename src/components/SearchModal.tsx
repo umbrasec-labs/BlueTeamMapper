@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   BookOpen,
   CornerDownLeft,
+  Crosshair,
   FileText,
   Hash,
   Layers,
@@ -21,6 +22,7 @@ import { kindLabel, kindOrder, search, type SearchDoc, type SearchKind } from '@
 import { useUi } from '@/store/ui';
 
 const kindIcon: Record<SearchKind, LucideIcon> = {
+  attack: Crosshair,
   phase: Orbit,
   layer: Layers,
   chain: Workflow,
@@ -44,6 +46,17 @@ export function SearchModal() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
+  // Start empty in the same render that opens the modal. Clearing later, in an effect or
+  // after the close animation, lets keys typed straight after Ctrl+K land on the old query.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setQuery('');
+      setActive(0);
+    }
+  }
+
   // Group results by kind, then flatten so arrow keys walk them in display order.
   const { groups, flat } = useMemo(() => {
     if (!open) return { groups: [] as [SearchKind, SearchDoc[]][], flat: [] as SearchDoc[] };
@@ -62,11 +75,10 @@ export function SearchModal() {
 
   useEffect(() => setActive(0), [query]);
 
+  // Focus at once so the first key typed lands in the field. autoFocus covers a fresh mount;
+  // this covers a reopen during the close animation, when the same input is reused.
   useEffect(() => {
-    if (open) {
-      setQuery('');
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
+    if (open) inputRef.current?.focus();
   }, [open]);
 
   useEffect(() => {
@@ -127,6 +139,7 @@ export function SearchModal() {
               <input
                 id="global-search"
                 ref={inputRef}
+                autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search phases, techniques, event IDs, tools, chains…"

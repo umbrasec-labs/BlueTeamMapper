@@ -4,7 +4,7 @@ import { ArrowUpDown, ChevronRight, FileCode2, Search, Sparkles, Workflow, X } f
 import { findEvent, flowChainById, tactics, techniques, type Severity, type Tactic } from '@/data';
 import { SeverityBadge } from '@/components/Badges';
 import { EmptyState } from '@/components/Feedback';
-import { rulesForTechnique, skillsForTechnique } from '@/data/detections';
+import { attackPath, attackUrl, rulesForTechnique, skillPath, skillsForTechnique } from '@/data/detections';
 import { coverageMeta } from '@/data/coverage';
 import { useCoverage } from '@/store/coverage';
 import { hueClass, severityMeta } from '@/lib/hues';
@@ -200,6 +200,7 @@ export default function MatrixView() {
                 const expanded = open === t.id;
                 const chain = t.chain ? flowChainById[t.chain] : undefined;
                 const stripe = hueClass[severityMeta[t.severity].hue].dot;
+                const pairedSkills = expanded ? skillsForTechnique(t.attackId, Infinity) : [];
                 return (
                   <Fragment key={t.id}>
                     <tr
@@ -300,27 +301,32 @@ export default function MatrixView() {
                             <div>
                               <div className="eyebrow mb-1.5">umbra-blue skills</div>
                               <div className="flex flex-wrap gap-1.5">
-                                {skillsForTechnique(t.attackId, 3).map((sk) => (
-                                  <a key={sk.name} href={sk.url} target="_blank" rel="noreferrer" className="chip" title={sk.description}>
+                                {pairedSkills.slice(0, 3).map((sk) => (
+                                  <Link key={sk.name} to={skillPath(sk.name)} className="chip" title={sk.description}>
                                     <Sparkles aria-hidden className="h-3 w-3 text-teal" /> {sk.name}
                                     <span className="text-fog-muted">T{sk.tier}</span>
-                                  </a>
+                                  </Link>
                                 ))}
-                                {skillsForTechnique(t.attackId).length === 0 && (
+                                {pairedSkills.length > 3 && (
+                                  <Link to={attackPath(t.attackId)} className="chip">
+                                    +{pairedSkills.length - 3} more
+                                  </Link>
+                                )}
+                                {pairedSkills.length === 0 && (
                                   <span className="text-2xs text-fog-muted">No paired skill yet</span>
                                 )}
                               </div>
                             </div>
                             <div>
                               <div className="eyebrow mb-1.5">ATT&amp;CK</div>
-                              <a
-                                className="chip"
-                                href={`https://attack.mitre.org/techniques/${t.attackId.replace('.', '/')}/`}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                {t.attackId} on attack.mitre.org
-                              </a>
+                              <div className="flex flex-wrap gap-1.5">
+                                <Link className="chip" to={attackPath(t.attackId)}>
+                                  Everything on {t.attackId}
+                                </Link>
+                                <a className="chip" href={attackUrl(t.attackId)} target="_blank" rel="noreferrer">
+                                  {t.attackId} on attack.mitre.org
+                                </a>
+                              </div>
                             </div>
                           </div>
                         </td>

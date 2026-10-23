@@ -1,5 +1,5 @@
-import { Suspense } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Suspense, useEffect } from 'react';
+import { Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { Command, Menu, Search } from 'lucide-react';
 import { useUi } from '@/store/ui';
 import { isTyping, useKeydown } from '@/lib/useKeyboard';
@@ -16,6 +16,8 @@ const titles: [RegExp, string][] = [
   [/^\/matrix/, 'Technique Detection Matrix'],
   [/^\/detections/, 'Detections'],
   [/^\/coverage/, 'Coverage Assessment'],
+  [/^\/skills/, 'umbra-blue Skill'],
+  [/^\/attack/, 'ATT&CK Technique'],
   [/^\/events/, 'Event ID Reference'],
   [/^\/tools/, 'Tool Arsenal'],
   [/^\/sections/, 'Reference Section'],
@@ -29,6 +31,18 @@ export function Layout() {
   const openSearch = useUi((s) => s.openSearch);
   const toggleNav = useUi((s) => s.toggleNav);
   const title = titles.find(([re]) => re.test(location.pathname))?.[1] ?? 'Blue Team Mapper';
+  const navigationType = useNavigationType();
+
+  // A link to another page opens it at the top, or at its #section. Back and Forward keep
+  // the position the browser restores, and replace navigations (redirects, in-place
+  // toggles) stay where they are.
+  useEffect(() => {
+    if (navigationType !== 'PUSH') return;
+    const target = location.hash && document.getElementById(location.hash.slice(1));
+    if (target) target.scrollIntoView();
+    else window.scrollTo(0, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   useKeydown(
     (e) => {
