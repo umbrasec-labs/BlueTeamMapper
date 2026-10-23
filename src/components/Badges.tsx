@@ -1,7 +1,22 @@
 import { Link } from 'react-router-dom';
 import { phaseById, type PhaseId, type Severity } from '@/data';
+import { tierMeta, type BlueSkill } from '@/data/detections';
 import { hueClass, severityMeta } from '@/lib/hues';
 import { icons } from '@/lib/icons';
+
+/** umbra-blue tier. Tier 1 ships a sourced detection; Tier 2 is methodology only. */
+export function TierBadge({ tier, className = '' }: { tier: BlueSkill['tier']; className?: string }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded border px-1.5 py-px font-mono text-2xs ${
+        tier === 1 ? 'border-teal/50 bg-teal/10 text-teal' : 'border-white/10 text-fog-dim'
+      } ${className}`}
+      title={`${tierMeta[tier].label}: ${tierMeta[tier].hint}`}
+    >
+      Tier {tier}
+    </span>
+  );
+}
 
 export function SeverityBadge({ severity, className = '' }: { severity: Severity; className?: string }) {
   const meta = severityMeta[severity];

@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import { Layout } from '@/components/Layout';
 import { RadialView } from '@/views/RadialView';
@@ -13,6 +13,8 @@ const RunbookRunView = lazy(() => import('@/views/RunbookRunView'));
 const MatrixView = lazy(() => import('@/views/MatrixView'));
 const DetectionsView = lazy(() => import('@/views/DetectionsView'));
 const CoverageView = lazy(() => import('@/views/CoverageView'));
+const SkillView = lazy(() => import('@/views/SkillView'));
+const AttackView = lazy(() => import('@/views/AttackView'));
 const EventsView = lazy(() => import('@/views/EventsView'));
 const ToolsView = lazy(() => import('@/views/ToolsView'));
 const SectionView = lazy(() => import('@/views/SectionView'));
@@ -39,6 +41,11 @@ export function App() {
             <Route path="matrix" element={<MatrixView />} />
             <Route path="detections" element={<DetectionsView />} />
             <Route path="coverage" element={<CoverageView />} />
+            {/* Permalinks other UMBRASEC repos link to. Public contract: keep these paths stable. */}
+            <Route path="skills" element={<Navigate to="/detections?tab=skills" replace />} />
+            <Route path="skills/:name" element={<SkillView />} />
+            {/* Splat so T1558/003 resolves as well as T1558.003. */}
+            <Route path="attack/*" element={<AttackView />} />
             <Route path="events" element={<EventsView />} />
             <Route path="tools" element={<ToolsView />} />
             <Route path="sections/:sectionId" element={<SectionView />} />

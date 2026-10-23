@@ -28,13 +28,29 @@ queries, all in one visual reference.
 | `/detections?focus=&tab=` | **Detections** | Every rule and query in the [UMBRASEC sigma-pack](https://umbrasec.dev/tools/sigma-pack/), shown as the canonical copy with writeup, false positives and copy button, plus all [umbra-blue](https://github.com/umbrasec-labs/umbra-blue) skills by tier. |
 | `/runbooks` | **IR Runbooks** | Run any flow chain as a live checklist during a real incident. Start a run from this page or with **Start runbook** on a flow chain, then tick actions, record who approved each gate, pick the branch you take and write notes. Every change lands on a timestamped timeline. Open and closed runs are listed with progress and elapsed time. Import a run from its JSON export. Stored only in your browser. |
 | `/runbooks/:runId` | **Live run** | One incident: steps on the chosen path with actions, notes, approval gates and branch buttons; branches and steps not taken; a live timeline with free-text entries; an elapsed clock. Close or reopen the incident. Export a Markdown timeline (copy or download) for the ticket or RCA, or the run as JSON. |
+| `/skills/:name` | **Skill page** | One umbra-blue skill: tier and what it means, its ATT&CK and ATLAS IDs, the matrix techniques it covers (with your coverage rating), the UMBRASEC rules it ships and other rules for the same techniques, the flow chains it leads to, and the claude-red skills it answers. Links to its `SKILL.md`. |
+| `/attack/:id` | **Technique page** | One ATT&CK or ATLAS ID, with parent and sub-technique matches: matrix techniques, UMBRASEC rules, every umbra-blue skill (exact matches and Tier 1 first), flow chains and the MITRE page. |
 | `/coverage` | **Coverage Assessment** | Tick the log sources you collect and rate each technique Alert / Logged / Blind. Shows a coverage score, critical gaps and techniques that are blind for lack of a source. Export or import an ATT&CK Navigator layer. Stored only in your browser. |
 | `/events?focus=` | **Event ID Reference** | Windows Security and Sysmon events grouped by category, cross-linked to techniques. |
 | `/tools?q=&focus=` | **Tool Arsenal** | 60 tools in 11 categories, with fuzzy search. |
 | `/sections/:id?card=` | **Section reader** | Every v3 section in full: callouts, matrices, cards and SPL hunt queries. |
 
 **Global search** (`⌘K`, `Ctrl+K` or `/`) covers phases, layers, chains, steps, techniques, event IDs,
-tools, sections and individual reference cards, and jumps straight to the matching node.
+tools, sections and individual reference cards, and jumps straight to the matching node. Type a technique
+ID such as `T1558.003` to open its technique page.
+
+### Permalinks
+
+Other UMBRASEC repos link into the mapper with these two routes. They are a stable contract: they will
+keep resolving, so link to them freely.
+
+| Link | Resolves to |
+| --- | --- |
+| `https://umbrasec-labs.github.io/BlueTeamMapper/skills/<name>` | The skill page for an umbra-blue skill, by its folder name, e.g. `/skills/detect-kerberoasting`. Every skill in umbra-blue resolves. An unknown name shows close matches and a link to all skills. |
+| `https://umbrasec-labs.github.io/BlueTeamMapper/attack/<id>` | The technique page for an ATT&CK or ATLAS ID, e.g. `/attack/T1558.003` or `/attack/AML.T0051`. Case doesn't matter, and `T1558-003` or `T1558/003` redirect to `T1558.003`. An ID the mapper has nothing on still links to MITRE. |
+
+`skillPath()` and `attackPath()` in `src/data/detections.ts` build these paths; use them for internal
+links too.
 
 ### Keyboard
 
@@ -242,6 +258,12 @@ the muted eight-hue coding set from v3 so categories and severities stay disting
 - Changing a branch puts untouched steps from the old branch back to pending; steps with work on them move to
   **Left the path** and keep their record in the view and the export
 - A run whose chain a later release removes can still be downloaded as JSON or deleted
+- Permalink pages: `/skills/<name>` for every umbra-blue skill and `/attack/<id>` for any ATT&CK or ATLAS ID
+- Skill and ATT&CK links in the Detections, Matrix and Coverage views and in search now open these pages
+- Matrix rows link to the full skill list for a technique when more than three skills cover it
+- ATLAS links keep the `AML.` prefix, so they open the right page on atlas.mitre.org
+- Search always reopens empty, even when you start typing straight away
+- A link to another page opens it at the top. Back and Forward keep your place
 
 ### v4.1
 - Detections view: UMBRASEC sigma-pack rules (canonical copy) and umbra-blue skills, synced at build time

@@ -12,9 +12,10 @@ import {
   toolCategoryById,
   tools,
 } from '@/data';
-import { rules, skills } from '@/data/detections';
+import { attackPath, normaliseAttackId, rules, skillPath, skills } from '@/data/detections';
 
 export type SearchKind =
+  | 'attack'
   | 'phase'
   | 'layer'
   | 'chain'
@@ -38,6 +39,7 @@ export interface SearchDoc {
 }
 
 export const kindLabel: Record<SearchKind, string> = {
+  attack: 'Technique ID',
   phase: 'Phase',
   layer: 'Layer',
   chain: 'Flow chain',
@@ -53,6 +55,7 @@ export const kindLabel: Record<SearchKind, string> = {
 
 /** Order result groups appear in. */
 export const kindOrder: SearchKind[] = [
+  'attack',
   'phase',
   'layer',
   'chain',
@@ -163,7 +166,7 @@ function buildDocs(): SearchDoc[] {
       title: sk.name,
       subtitle: `Tier ${sk.tier} · ${sk.category}`,
       body: `${sk.description} ${sk.attackIds.join(' ')}`,
-      to: `/detections?tab=skills&q=${encodeURIComponent(sk.name)}`,
+      to: skillPath(sk.name),
     });
   }
 
@@ -220,5 +223,17 @@ export function search(query: string, limit = 40): SearchDoc[] {
   const q = query.trim();
   const { fuse: f, docs } = index();
   if (!q) return docs.filter((d) => d.kind === 'phase' || d.kind === 'chain');
-  return f.search(q, { limit }).map((r) => r.item);
+  const results = f.search(q, { limit }).map((r) => r.item);
+  // A query that is a technique ID (T1558.003, t1558-003, AML.T0051) also offers its permalink page.
+  const id = normaliseAttackId(q);
+  if (!id) return results;
+  const page: SearchDoc = {
+    id: `attack:${id}`,
+    kind: 'attack',
+    title: id,
+    subtitle: 'Every matrix technique, rule, skill and chain for this ID',
+    body: '',
+    to: attackPath(id),
+  };
+  return [page, ...results];
 }

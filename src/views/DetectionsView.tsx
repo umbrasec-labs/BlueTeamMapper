@@ -1,38 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BookOpen, Check, Copy, ExternalLink, FileCode2, GitCommitHorizontal, Search, Sparkles } from 'lucide-react';
-import { techniques } from '@/data';
 import {
-  attackUrl,
+  attackPath,
   detectionSources,
   rules,
+  skillPath,
   skills,
   skillsForRule,
+  techniquesForIds,
   type BlueSkill,
   type DetectionRule,
 } from '@/data/detections';
+import { TierBadge } from '@/components/Badges';
 import { EmptyState } from '@/components/Feedback';
+import { ruleLevelClass } from '@/components/DetectionLinks';
 
 type Tab = 'rules' | 'skills';
 
-const levelStyle: Record<string, string> = {
-  critical: 'text-ember border-ember/40 bg-ember/10',
-  high: 'text-ember border-ember/40 bg-ember/10',
-  medium: 'text-gold border-gold/40 bg-gold/10',
-  low: 'text-sage border-sage/40 bg-sage/10',
-  informational: 'text-slate border-slate/40 bg-slate/10',
-};
-
-const related = (a: string, b: string) => a === b || a.startsWith(`${b}.`) || b.startsWith(`${a}.`);
-const mapperTechniques = (ids: string[]) => techniques.filter((t) => ids.some((id) => related(id, t.attackId)));
-
+/** Each ID opens its technique page, which carries the MITRE link. */
 function AttackChips({ ids }: { ids: string[] }) {
   return (
     <>
       {ids.map((id) => (
-        <a key={id} href={attackUrl(id)} target="_blank" rel="noreferrer" className="chip text-ember/90">
+        <Link key={id} to={attackPath(id)} className="chip text-ember/90">
           {id}
-        </a>
+        </Link>
       ))}
     </>
   );
@@ -41,7 +34,7 @@ function AttackChips({ ids }: { ids: string[] }) {
 function RuleDetail({ rule }: { rule: DetectionRule }) {
   const [copied, setCopied] = useState(false);
   const inlinedBy = skillsForRule(rule.id);
-  const mapped = mapperTechniques(rule.attackIds);
+  const mapped = techniquesForIds(rule.attackIds);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(rule.content);
@@ -56,7 +49,7 @@ function RuleDetail({ rule }: { rule: DetectionRule }) {
       <div className="border-b border-white/[0.07] p-5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="chip uppercase">{rule.kind}</span>
-          {rule.level && <span className={`chip uppercase ${levelStyle[rule.level] ?? ''}`}>{rule.level}</span>}
+          {rule.level && <span className={`chip uppercase ${ruleLevelClass[rule.level] ?? ''}`}>{rule.level}</span>}
           {rule.status && <span className="chip">{rule.status}</span>}
           {rule.correlation && <span className="chip">correlation</span>}
         </div>
@@ -94,9 +87,9 @@ function RuleDetail({ rule }: { rule: DetectionRule }) {
               <dt className="eyebrow mb-1">umbra-blue skill</dt>
               <dd className="flex flex-wrap gap-1">
                 {inlinedBy.map((s) => (
-                  <a key={s.name} href={s.url} target="_blank" rel="noreferrer" className="chip">
+                  <Link key={s.name} to={skillPath(s.name)} className="chip">
                     <Sparkles aria-hidden className="h-3 w-3 text-teal" /> {s.name}
-                  </a>
+                  </Link>
                 ))}
               </dd>
             </div>
@@ -179,7 +172,7 @@ function RulesTab({ focus, onFocus }: { focus: string | null; onFocus: (id: stri
                   </span>
                   <span className="mt-1 flex flex-wrap items-center gap-1.5 pl-5 font-mono text-2xs text-fog-muted">
                     {r.attackIds.join(' · ')}
-                    {r.level && <span className={`rounded border px-1 ${levelStyle[r.level]}`}>{r.level}</span>}
+                    {r.level && <span className={`rounded border px-1 ${ruleLevelClass[r.level]}`}>{r.level}</span>}
                   </span>
                 </button>
               </li>
@@ -193,22 +186,19 @@ function RulesTab({ focus, onFocus }: { focus: string | null; onFocus: (id: stri
 }
 
 function SkillCard({ skill }: { skill: BlueSkill }) {
-  const mapped = mapperTechniques(skill.attackIds.filter((id) => !id.startsWith('AML.')));
+  const mapped = techniquesForIds(skill.attackIds);
   return (
     <article className="glass flex flex-col gap-2.5 p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="truncate font-mono text-[13px] font-medium text-fog-bright">{skill.name}</h3>
+          <h3 className="truncate font-mono text-[13px] font-medium text-fog-bright">
+            <Link to={skillPath(skill.name)} className="hover:text-ember">
+              {skill.name}
+            </Link>
+          </h3>
           <div className="eyebrow mt-0.5">{skill.category}</div>
         </div>
-        <span
-          className={`shrink-0 rounded border px-1.5 py-px font-mono text-2xs ${
-            skill.tier === 1 ? 'border-teal/50 bg-teal/10 text-teal' : 'border-white/10 text-fog-dim'
-          }`}
-          title={skill.tier === 1 ? 'Sourced: ships a tuned UMBRASEC rule' : 'Methodology: no bespoke rule yet'}
-        >
-          Tier {skill.tier}
-        </span>
+        <TierBadge tier={skill.tier} />
       </div>
       <p className="line-clamp-4 text-xs leading-relaxed text-fog-dim">{skill.description}</p>
       {skill.attackIds.length > 0 && (

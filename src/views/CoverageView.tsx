@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { AlertTriangle, Download, FileCheck2, FlaskConical, RotateCcw, ShieldCheck, Upload } from 'lucide-react';
 import { techniques, type Technique } from '@/data';
 import { coverageMeta, logSources, techniqueSources, type CoverageLevel } from '@/data/coverage';
-import { rulesForTechnique, skillsForTechnique } from '@/data/detections';
+import { rulesForTechnique, skillPath, skillsForTechnique } from '@/data/detections';
 import { useCoverage } from '@/store/coverage';
 import { SeverityBadge } from '@/components/Badges';
 import { buildLayer, downloadLayer, parseLayer } from '@/lib/navigator';
@@ -391,9 +391,9 @@ export default function CoverageView() {
                     </Link>
                   )}
                   {skill && (
-                    <a href={skill.url} target="_blank" rel="noreferrer" className="chip" title={skill.description}>
+                    <Link to={skillPath(skill.name)} className="chip" title={skill.description}>
                       umbra-blue · {skill.name} <span className="text-fog-muted">T{skill.tier}</span>
-                    </a>
+                    </Link>
                   )}
                   {inferredBlind && (
                     <span className="ml-auto text-ember">Likely blind: none of its log sources are collected</span>
