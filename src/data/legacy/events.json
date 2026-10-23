@@ -1,0 +1,346 @@
+[
+  {
+    "id": 4624,
+    "source": "security",
+    "category": "Logon Events",
+    "name": "Successful logon",
+    "description": "Type 2=interactive · Type 3=network · Type 9=runas · Type 10=RDP",
+    "signal": "good"
+  },
+  {
+    "id": 4625,
+    "source": "security",
+    "category": "Logon Events",
+    "name": "Failed logon",
+    "description": "Password spray · brute force identification",
+    "signal": "bad"
+  },
+  {
+    "id": 4648,
+    "source": "security",
+    "category": "Logon Events",
+    "name": "Explicit credential",
+    "description": "runas / Pass-the-Hash preparation indicator",
+    "signal": "warn"
+  },
+  {
+    "id": 4634,
+    "source": "security",
+    "category": "Logon Events",
+    "name": "Logoff",
+    "description": "Session end - use to calculate session duration",
+    "signal": "warn"
+  },
+  {
+    "id": 4647,
+    "source": "security",
+    "category": "Logon Events",
+    "name": "User initiated logoff",
+    "description": "Explicit logout vs. session timeout",
+    "signal": "warn"
+  },
+  {
+    "id": 4672,
+    "source": "security",
+    "category": "Logon Events",
+    "name": "Special privileges",
+    "description": "Admin logon → track all Domain Admin interactive sessions",
+    "signal": "warn"
+  },
+  {
+    "id": 4776,
+    "source": "security",
+    "category": "Logon Events",
+    "name": "NTLM auth validation",
+    "description": "Should be rare if Kerberos enforced - NTLM use is suspicious",
+    "signal": "bad"
+  },
+  {
+    "id": 4720,
+    "source": "security",
+    "category": "Account & Privilege Events",
+    "name": "Account created",
+    "description": "Unauthorized new user account creation",
+    "signal": "warn"
+  },
+  {
+    "id": 4728,
+    "source": "security",
+    "category": "Account & Privilege Events",
+    "name": "Member added to global grp",
+    "description": "Domain Admins membership change - always alert",
+    "signal": "bad"
+  },
+  {
+    "id": 4756,
+    "source": "security",
+    "category": "Account & Privilege Events",
+    "name": "Member added to univ grp",
+    "description": "Enterprise Admins / high-priv group membership",
+    "signal": "bad"
+  },
+  {
+    "id": 4738,
+    "source": "security",
+    "category": "Account & Privilege Events",
+    "name": "User account changed",
+    "description": "Pre-auth disabled (AS-REP roastable) · PwdNotRequired flag",
+    "signal": "warn"
+  },
+  {
+    "id": 4765,
+    "source": "security",
+    "category": "Account & Privilege Events",
+    "name": "SID History added",
+    "description": "Privilege escalation via SID History injection",
+    "signal": "bad"
+  },
+  {
+    "id": 4723,
+    "source": "security",
+    "category": "Account & Privilege Events",
+    "name": "Password change attempt",
+    "description": "Self-service reset · verify intent",
+    "signal": "warn"
+  },
+  {
+    "id": 4724,
+    "source": "security",
+    "category": "Account & Privilege Events",
+    "name": "Password reset attempt",
+    "description": "Admin reset of another account - verify authorization",
+    "signal": "bad"
+  },
+  {
+    "id": 4768,
+    "source": "security",
+    "category": "Kerberos Events",
+    "name": "Kerberos AS ticket (TGT)",
+    "description": "AS-REP roast: accounts with pre-auth disabled",
+    "signal": "warn"
+  },
+  {
+    "id": 4769,
+    "source": "security",
+    "category": "Kerberos Events",
+    "name": "Kerberos service ticket",
+    "description": "Kerberoast: etype 0x17 (RC4) for service accounts",
+    "signal": "bad"
+  },
+  {
+    "id": 4770,
+    "source": "security",
+    "category": "Kerberos Events",
+    "name": "Kerberos ticket renewed",
+    "description": "Anomalous renewal patterns",
+    "signal": "warn"
+  },
+  {
+    "id": 4771,
+    "source": "security",
+    "category": "Kerberos Events",
+    "name": "Kerberos pre-auth failed",
+    "description": "Kerberos equivalent of failed password spray (4625)",
+    "signal": "warn"
+  },
+  {
+    "id": 4662,
+    "source": "security",
+    "category": "Active Directory Events",
+    "name": "AD object access",
+    "description": "DCSync: mask 0x100 on Domain object from non-DC source",
+    "signal": "bad"
+  },
+  {
+    "id": 4741,
+    "source": "security",
+    "category": "Active Directory Events",
+    "name": "Computer account created",
+    "description": "Unauthorized machine account (resource-based delegation abuse)",
+    "signal": "warn"
+  },
+  {
+    "id": 4742,
+    "source": "security",
+    "category": "Active Directory Events",
+    "name": "Computer account changed",
+    "description": "Service Principal Name changes → potential Kerberoast setup",
+    "signal": "warn"
+  },
+  {
+    "id": 4886,
+    "source": "security",
+    "category": "Certificate Services",
+    "name": "Certificate issued",
+    "description": "Monitor all issuances for privileged account templates",
+    "signal": "warn"
+  },
+  {
+    "id": 4887,
+    "source": "security",
+    "category": "Certificate Services",
+    "name": "Certificate issued with SAN",
+    "description": "ESC1 exploitation: SAN containing privileged UPN",
+    "signal": "bad"
+  },
+  {
+    "id": 4899,
+    "source": "security",
+    "category": "Certificate Services",
+    "name": "Certificate template modified",
+    "description": "ESC4 attack: template modification for exploitation",
+    "signal": "warn"
+  },
+  {
+    "id": 4688,
+    "source": "security",
+    "category": "Process & Execution",
+    "name": "Process created",
+    "description": "Must enable + command line audit policy for full value",
+    "signal": "good"
+  },
+  {
+    "id": 4698,
+    "source": "security",
+    "category": "Process & Execution",
+    "name": "Scheduled task created",
+    "description": "Attacker persistence - inspect task action and author",
+    "signal": "warn"
+  },
+  {
+    "id": 7045,
+    "source": "security",
+    "category": "Process & Execution",
+    "name": "New service installed",
+    "description": "PsExec / attacker service drop - review binary path",
+    "signal": "bad"
+  },
+  {
+    "id": 1,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "Process Create",
+    "description": "Hashes + full command line + parent process + user context",
+    "signal": "good"
+  },
+  {
+    "id": 2,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "File time changed",
+    "description": "Anti-forensic timestomping detection",
+    "signal": "warn"
+  },
+  {
+    "id": 3,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "Network Connect",
+    "description": "Process→IP/domain with port. C2 beacon correlation source",
+    "signal": "warn"
+  },
+  {
+    "id": 5,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "Process terminated",
+    "description": "Malware self-delete pattern (short-lived malicious processes)",
+    "signal": "warn"
+  },
+  {
+    "id": 7,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "Image loaded",
+    "description": "DLL load with hash and signature status. Detect unsigned DLLs",
+    "signal": "warn"
+  },
+  {
+    "id": 8,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "CreateRemoteThread",
+    "description": "Cross-process injection - high confidence IOC when unexpected",
+    "signal": "bad"
+  },
+  {
+    "id": 10,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "ProcessAccess",
+    "description": "GrantedAccess 0x1FFFFF / 0x1010 from non-AV = LSASS dump",
+    "signal": "bad"
+  },
+  {
+    "id": 11,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "FileCreate",
+    "description": "Malware dropping files to disk - monitor temp and user paths",
+    "signal": "warn"
+  },
+  {
+    "id": 12,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "RegistryCreateKey",
+    "description": "Registry key creation - Run keys, services, COM entries",
+    "signal": "warn"
+  },
+  {
+    "id": 13,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "RegistrySetValue",
+    "description": "Registry value modification - persistence mechanism monitoring",
+    "signal": "warn"
+  },
+  {
+    "id": 15,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "FileCreateStreamHash",
+    "description": "NTFS Alternate Data Stream creation - hiding data in streams",
+    "signal": "warn"
+  },
+  {
+    "id": 17,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "PipeCreated",
+    "description": "Named pipe creation - Cobalt Strike default pipe names detectable",
+    "signal": "bad"
+  },
+  {
+    "id": 18,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "PipeConnected",
+    "description": "Named pipe connection - lateral movement via named pipes (PsExec)",
+    "signal": "bad"
+  },
+  {
+    "id": 22,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "DNSEvent",
+    "description": "DNS query + requesting process. C2-over-DNS detection anchor",
+    "signal": "warn"
+  },
+  {
+    "id": 23,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "FileDelete (archive)",
+    "description": "Malware deleting itself after execution",
+    "signal": "warn"
+  },
+  {
+    "id": 25,
+    "source": "sysmon",
+    "category": "Sysmon",
+    "name": "ProcessTampering",
+    "description": "Process image hollowing / herpaderping / doppelgänging",
+    "signal": "bad"
+  }
+]
