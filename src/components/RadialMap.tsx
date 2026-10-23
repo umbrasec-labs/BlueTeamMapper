@@ -91,7 +91,7 @@ export function RadialMap({ selected, onSelect }: Props) {
   return (
     <svg
       viewBox={`${-VIEW} ${-VIEW} ${VIEW * 2} ${VIEW * 2}`}
-      className="h-auto w-full max-w-[min(100%,760px)] select-none"
+      className="h-auto w-full max-w-[min(100%,clamp(600px,calc(100vh-15rem),860px))] select-none"
       role="group"
       aria-label="Defense lifecycle: seven phases. Use arrow keys or number keys 1 to 7 to select a phase."
     >
@@ -111,7 +111,7 @@ export function RadialMap({ selected, onSelect }: Props) {
           [
             ['arrow-idle', '#525252'],
             ['arrow-active', '#f25623'],
-            ['arrow-feedback', '#3f6f64'],
+            ['arrow-feedback', '#36524b'],
             ['arrow-feedback-active', '#5fb3a1'],
           ] as const
         ).map(([id, color]) => (
@@ -139,6 +139,11 @@ export function RadialMap({ selected, onSelect }: Props) {
           return <line key={i} x1={x0} y1={y0} x2={x1} y2={y1} stroke="#2e2e2e" strokeWidth={1} />;
         })}
         <circle r={R_IN - 8} fill="none" stroke="#242424" strokeDasharray="2 6" />
+        {/* Full guide tracks for every orbit, so the drawing stays concentric however the links fall. */}
+        <circle r={R_FLOW} fill="none" stroke="#2a2a2a" strokeWidth={1} />
+        {R_FEEDBACK.map((r) => (
+          <circle key={r} r={r} fill="none" stroke="#242a29" strokeWidth={1} />
+        ))}
       </g>
 
       {/* Links */}
@@ -146,7 +151,8 @@ export function RadialMap({ selected, onSelect }: Props) {
         {links.map(({ link, d }) => {
           const active = isLinkActive(link);
           const feedback = link.kind === 'feedback';
-          const color = feedback ? (active ? '#5fb3a1' : '#2f4f48') : active ? '#f25623' : '#3a3a3a';
+          // Idle feedback arcs stay close to the track color so the orbits read as even circles.
+          const color = feedback ? (active ? '#5fb3a1' : '#2c403b') : active ? '#f25623' : '#3a3a3a';
           const marker = feedback
             ? active
               ? 'arrow-feedback-active'
