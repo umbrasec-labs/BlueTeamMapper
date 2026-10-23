@@ -31,6 +31,7 @@ export default {
         slate: '#8fa3b8', // info
         mauve: '#b48ead',
         rose: '#cf8a78',
+        brand: '#4f8fe6', // logo mark only: Blue Team Mapper blue
       },
       fontFamily: {
         display: ['Syne', 'ui-sans-serif', 'system-ui', 'sans-serif'],
