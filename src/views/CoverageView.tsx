@@ -1,10 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertTriangle, Download, FileCheck2, FlaskConical, RotateCcw, ShieldCheck, Upload } from 'lucide-react';
+import { AlertTriangle, Download, EyeOff, FileCheck2, FlaskConical, RotateCcw, ShieldCheck, Upload } from 'lucide-react';
 import { techniques, type Technique } from '@/data';
 import { coverageMeta, logSources, techniqueSources, type CoverageLevel } from '@/data/coverage';
-import { rulesForTechnique, skillPath, skillsForTechnique } from '@/data/detections';
+import { provedBlindSpots, rulesForTechnique, skillPath, skillsForTechnique } from '@/data/detections';
 import { useCoverage } from '@/store/coverage';
 import { SeverityBadge } from '@/components/Badges';
 import { buildLayer, downloadLayer, parseLayer } from '@/lib/navigator';
@@ -336,6 +336,9 @@ export default function CoverageView() {
             const umbrasec = rulesForTechnique(t.attackId);
             const skill = skillsForTechnique(t.attackId, 1)[0];
             const needed = techniqueSources[t.id];
+            // Only under Alert: that is the "we're covered" claim the proved blind spots qualify.
+            const caveats = level === 'alert' ? provedBlindSpots(t.attackId) : [];
+            const caveatRules = new Set(caveats.map((c) => c.rule.id)).size;
             return (
               <article
                 key={t.id}
@@ -399,6 +402,35 @@ export default function CoverageView() {
                     <span className="ml-auto text-ember">Likely blind: none of its log sources are collected</span>
                   )}
                 </div>
+                {caveats.length > 0 && (
+                  <div className="mt-2.5 rounded-lg border border-gold/25 bg-gold/[0.06] px-3 py-2">
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-gold">
+                      <EyeOff aria-hidden className="h-3.5 w-3.5 shrink-0" />
+                      The UMBRASEC {caveatRules > 1 ? 'rules are' : 'rule is'} proved to miss:
+                    </p>
+                    <ul className="mt-1.5 space-y-1.5">
+                      {caveats.map((c) => (
+                        <li key={`${c.rule.id}/${c.id}`} className="text-xs leading-relaxed">
+                          <span className="text-fog-bright">“{c.quote}”</span>{' '}
+                          <span className="text-fog-muted">
+                            ·{' '}
+                            <Link to={`/detections?focus=${c.rule.id}`} className="hover:text-ember">
+                              {c.rule.title}
+                            </Link>
+                            {c.rule.claims?.claimsUrl && (
+                              <>
+                                {' · '}
+                                <a href={c.rule.claims.claimsUrl} target="_blank" rel="noreferrer" className="text-teal hover:text-ember">
+                                  proof
+                                </a>
+                              </>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </article>
             );
           })}
