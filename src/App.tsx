@@ -8,6 +8,8 @@ import { RadialView } from '@/views/RadialView';
 // Everything else, and React Flow in particular, loads on demand.
 const LayersView = lazy(() => import('@/views/LayersView'));
 const FlowsView = lazy(() => import('@/views/FlowsView'));
+const RunbooksView = lazy(() => import('@/views/RunbooksView'));
+const RunbookRunView = lazy(() => import('@/views/RunbookRunView'));
 const MatrixView = lazy(() => import('@/views/MatrixView'));
 const DetectionsView = lazy(() => import('@/views/DetectionsView'));
 const CoverageView = lazy(() => import('@/views/CoverageView'));
@@ -32,6 +34,8 @@ export function App() {
             <Route path="layers/:layerId" element={<LayersView />} />
             <Route path="flows" element={<FlowsView />} />
             <Route path="flows/:chainId" element={<FlowsView />} />
+            <Route path="runbooks" element={<RunbooksView />} />
+            <Route path="runbooks/:runId" element={<RunbookRunView />} />
             <Route path="matrix" element={<MatrixView />} />
             <Route path="detections" element={<DetectionsView />} />
             <Route path="coverage" element={<CoverageView />} />

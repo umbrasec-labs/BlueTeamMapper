@@ -26,6 +26,8 @@ queries, all in one visual reference.
 | `/flows/:id?step=` | **Flow Chains** | React Flow graphs for Phishing, EDR Alert, Credential Compromise, Ransomware, DCSync, Cloud Token Theft, ADCS Exploitation and Data Exfiltration, with decision branches and analyst-approval gates. Click a step for actions, evidence (linked to event IDs), tools and common mistakes. |
 | `/matrix?focus=` | **Technique Detection Matrix** | 22 techniques with ATT&CK IDs and tactics. Filter by text, severity or tactic; sort; expand a row for event IDs to pull, the chain to run, UMBRASEC rules and the paired umbra-blue skills. |
 | `/detections?focus=&tab=` | **Detections** | Every rule and query in the [UMBRASEC sigma-pack](https://umbrasec.dev/tools/sigma-pack/), shown as the canonical copy with writeup, false positives and copy button, plus all [umbra-blue](https://github.com/umbrasec-labs/umbra-blue) skills by tier. |
+| `/runbooks` | **IR Runbooks** | Run any flow chain as a live checklist during a real incident. Start a run from this page or with **Start runbook** on a flow chain, then tick actions, record who approved each gate, pick the branch you take and write notes. Every change lands on a timestamped timeline. Open and closed runs are listed with progress and elapsed time. Import a run from its JSON export. Stored only in your browser. |
+| `/runbooks/:runId` | **Live run** | One incident: steps on the chosen path with actions, notes, approval gates and branch buttons; branches and steps not taken; a live timeline with free-text entries; an elapsed clock. Close or reopen the incident. Export a Markdown timeline (copy or download) for the ticket or RCA, or the run as JSON. |
 | `/coverage` | **Coverage Assessment** | Tick the log sources you collect and rate each technique Alert / Logged / Blind. Shows a coverage score, critical gaps and techniques that are blind for lack of a source. Export or import an ATT&CK Navigator layer. Stored only in your browser. |
 | `/events?focus=` | **Event ID Reference** | Windows Security and Sysmon events grouped by category, cross-linked to techniques. |
 | `/tools?q=&focus=` | **Tool Arsenal** | 60 tools in 11 categories, with fuzzy search. |
@@ -42,7 +44,7 @@ tools, sections and individual reference cards, and jumps straight to the matchi
 | `1`–`7` | Select a lifecycle phase |
 | `←` `→` | Cycle phases on the lifecycle map |
 | `Esc` | Close the detail panel or search |
-| `g` then `l` `a` `f` `c` | Go to lifecycle, architecture, flows, coverage |
+| `g` then `l` `a` `f` `r` `c` | Go to lifecycle, architecture, flows, runbooks, coverage |
 | `g` then `m` `d` `t` `e` | Go to matrix, detections, tools, events |
 
 ## Tech Stack
@@ -157,15 +159,19 @@ src/
                            SearchModal, PhaseCard, ToolCard, Reference renderers, ErrorBoundary…
   views/                   one file per route; everything but the lifecycle map is lazy-loaded
   lib/                     search index, graph layout, icon registry, hue tokens, keyboard helpers
+    runbook.ts             runbook types, path walking (branches, not-taken steps), progress, time formatting
+    runbookExport.ts       Markdown timeline export, JSON export, JSON import validation
   store/ui.ts              Zustand store (search + mobile nav open state)
   store/coverage.ts        persisted coverage self-assessment (localStorage)
+  store/runbooks.ts        persisted IR runbook runs and their timelines (localStorage)
 ```
 
 ### Architecture notes
 
 - **The URL is the state.** The selected phase (`?phase=`), layer (`/layers/:id`), chain and step
   (`/flows/:id?step=`) and focused matrix row, event or tool (`?focus=`) all live in the URL, so every view
-  deep-links and search can jump anywhere. Zustand only holds transient chrome (search modal, mobile nav).
+  deep-links and search can jump anywhere. Zustand holds transient chrome (search modal, mobile nav) and the
+  viewer's own data (coverage assessment, runbook runs), persisted to localStorage with an in-memory fallback.
 - **The radial map is hand-built SVG,** not React Flow. Its segments are annular sectors with arcs, which
   React Flow's node/edge model doesn't express well; SVG gives precise geometry, glow filters and focusable
   segments. React Flow does what it's best at: the zoomable, pannable flow-chain graphs.
@@ -220,6 +226,22 @@ the muted eight-hue coding set from v3 so categories and severities stay disting
 | `slate` / `mauve` / `rose` | `#8fa3b8` / `#b48ead` / `#cf8a78` | category coding |
 
 ## Changelog
+
+### v4.2 (unreleased)
+- IR Runbooks: run any of the 8 flow chains as a live checklist during an incident. Several runs at once, each
+  with a title, lead, severity and an elapsed clock
+- Steps follow the chain's path: single successors start automatically, decision steps wait for the analyst to
+  pick a branch, and steps on other branches show as not taken
+- Approval gates cannot be marked done until the approver's name is recorded
+- Every action, note, approval, branch and status change is logged with a timestamp; add free-text entries too
+- Export a Markdown timeline (UTC and local times, checklist, notes, approvals, branches not taken) by copy or
+  download, or the whole run as JSON; import a JSON export on another browser
+- **Start runbook** on every flow chain, an **IR Runbooks** sidebar entry with the open-run count, and `g` then `r`
+- Runs are stored only in the browser; clearing site data deletes them
+- Open tabs stay in step: a run started or edited in one tab shows in the others and is never overwritten
+- Changing a branch puts untouched steps from the old branch back to pending; steps with work on them move to
+  **Left the path** and keep their record in the view and the export
+- A run whose chain a later release removes can still be downloaded as JSON or deleted
 
 ### v4.1
 - Detections view: UMBRASEC sigma-pack rules (canonical copy) and umbra-blue skills, synced at build time

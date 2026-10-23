@@ -8,7 +8,7 @@ const shortcuts: [string, string][] = [
   ['1 – 7', 'Select a lifecycle phase'],
   ['← →', 'Cycle phases on the lifecycle map'],
   ['Esc', 'Close the detail panel or search'],
-  ['g then l / a / f / c', 'Go to lifecycle, architecture, flows, coverage'],
+  ['g then l / a / f / r / c', 'Go to lifecycle, architecture, flows, runbooks, coverage'],
   ['g then m / d / t / e', 'Go to matrix, detections, tools, events'],
 ];
 
@@ -93,7 +93,8 @@ export default function AboutView() {
         <h3 className="eyebrow mb-3">Notes</h3>
         <p>
           Runs entirely in your browser as a static site. There's no backend and nothing is fetched at runtime. Your
-          coverage assessment is stored only in this browser. ATT&amp;CK
+          coverage assessment and your IR runbook runs are stored only in this browser, and clearing site data deletes
+          them. Export a run as Markdown or JSON before you close the incident. ATT&amp;CK
           technique IDs are linked to attack.mitre.org for reference. Content is a practitioner reference, not vendor
           guidance: validate every control and query in your own environment before relying on it.
         </p>

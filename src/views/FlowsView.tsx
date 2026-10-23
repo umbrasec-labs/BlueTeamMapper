@@ -1,18 +1,27 @@
-import { useCallback } from 'react';
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
-import { Hand, MousePointerClick } from 'lucide-react';
+import { useCallback, useRef } from 'react';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Hand, ListChecks, MousePointerClick } from 'lucide-react';
 import { flowChainById, flowChains, phaseById, techniques } from '@/data';
 import { FlowGraph } from '@/components/FlowGraph';
 import { DetailPanel } from '@/components/DetailPanel';
 import { StepDetail } from '@/components/StepDetail';
 import { PhasePill, SeverityBadge } from '@/components/Badges';
 import { hueClass, hueHex } from '@/lib/hues';
+import { defaultRunTitle } from '@/lib/runbook';
+import { useRunbooks } from '@/store/runbooks';
 import { icons } from '@/lib/icons';
 
 /** Defense flow chains: chain picker, React Flow graph, step detail panel. */
 export default function FlowsView() {
   const { chainId } = useParams();
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const openRuns = useRunbooks(
+    (s) => Object.values(s.runs).filter((r) => r.status === 'active' && r.chainId === chainId).length,
+  );
+  // The run page loads in a transition, so this button stays on screen for a moment and can
+  // take a second click. One run per click.
+  const starting = useRef(false);
 
   const selectStep = useCallback(
     (id: string | null) => setParams(id ? { step: id } : {}, { replace: true }),
@@ -27,6 +36,15 @@ export default function FlowsView() {
   const step = chain.steps.find((s) => s.id === stepId) ?? null;
   const chainTechniques = techniques.filter((t) => chain.techniques.includes(t.id));
   const ChainIcon = icons[chain.icon];
+
+  // One click to get going: a run with a dated default title. Rename it on the run page.
+  const startRunbook = () => {
+    if (starting.current) return;
+    const id = useRunbooks.getState().createRun({ chainId: chain.id, title: defaultRunTitle(chain) });
+    if (!id) return;
+    starting.current = true;
+    navigate(`/runbooks/${id}`);
+  };
 
   return (
     <div className="flex items-start gap-6">
@@ -79,6 +97,16 @@ export default function FlowsView() {
                 </Link>
               ))}
             </div>
+          </div>
+          <div className="flex shrink-0 flex-col items-start gap-1.5">
+            <button type="button" className="btn btn-primary" onClick={startRunbook}>
+              <ListChecks aria-hidden className="h-4 w-4" /> Start runbook
+            </button>
+            {openRuns > 0 && (
+              <Link to="/runbooks" className="text-2xs text-fog-muted hover:text-ember">
+                {openRuns} open {openRuns === 1 ? 'run' : 'runs'} of this chain
+              </Link>
+            )}
           </div>
         </header>
 

@@ -8,6 +8,7 @@ import {
   Hash,
   Info,
   Layers,
+  ListChecks,
   Orbit,
   Table2,
   Workflow,
@@ -16,12 +17,14 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { sectionById } from '@/data';
+import { useRunbooks } from '@/store/runbooks';
 import { useUi } from '@/store/ui';
 
 const primary: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
   { to: '/', label: 'Lifecycle Map', icon: Orbit, end: true },
   { to: '/layers', label: 'Architecture Layers', icon: Layers },
   { to: '/flows', label: 'Flow Chains', icon: Workflow },
+  { to: '/runbooks', label: 'IR Runbooks', icon: ListChecks },
   { to: '/coverage', label: 'Coverage Assessment', icon: Gauge },
 ];
 
@@ -50,6 +53,7 @@ const linkCls = ({ isActive }: { isActive: boolean }) =>
 
 function NavContents() {
   const close = () => useUi.getState().toggleNav(false);
+  const openRuns = useRunbooks((s) => Object.values(s.runs).filter((r) => r.status === 'active').length);
   return (
     <div className="flex h-full flex-col">
       <NavLink to="/" onClick={close} className="flex items-center gap-3 px-5 pb-5 pt-5">
@@ -76,6 +80,12 @@ function NavContents() {
                 <NavLink to={to} end={end} onClick={close} className={linkCls}>
                   <Icon aria-hidden className="h-4 w-4 shrink-0 text-fog-dim group-hover:text-ember" />
                   {label}
+                  {to === '/runbooks' && openRuns > 0 && (
+                    <span className="tabular ml-auto rounded border border-ember/40 bg-ember/10 px-1.5 font-mono text-2xs text-ember">
+                      {openRuns}
+                      <span className="sr-only"> open</span>
+                    </span>
+                  )}
                 </NavLink>
               </li>
             ))}
