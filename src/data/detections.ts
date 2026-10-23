@@ -233,6 +233,30 @@ export function rulesForTechnique(attackId: string): DetectionRule[] {
   return rules.filter((r) => r.attackIds.some((id) => related(id, attackId)));
 }
 
+/** A blind spot the Claims Ledger proved for one UMBRASEC rule. */
+export interface ProvedBlindSpot {
+  rule: DetectionRule;
+  id: string;
+  quote: string;
+}
+
+/**
+ * Proved blind spots of the UMBRASEC rules for a technique, for the coverage caveats.
+ * Only rules whose claims are verified right now count: a stale, failing or mismatched
+ * proof says nothing about the rule as it stands. A quote that is part of a longer quote
+ * from the same rule is folded into it, so every line shown is a full sentence.
+ */
+export function provedBlindSpots(attackId: string): ProvedBlindSpot[] {
+  return rulesForTechnique(attackId).flatMap((rule) => {
+    if (rule.claims?.status !== 'verified') return [];
+    const spots = rule.claims.blindSpots;
+    return spots
+      .filter((b, i) => !spots.some((o, j) => j !== i && o.quote !== b.quote && o.quote.includes(b.quote)))
+      .filter((b, i, kept) => kept.findIndex((o) => o.quote === b.quote) === i)
+      .map((b) => ({ rule, id: b.id, quote: b.quote }));
+  });
+}
+
 /**
  * Skills that address a technique: exact ID matches first, then parent/child matches,
  * Tier 1 before Tier 2. Capped so broad skills don't drown specific ones; pass
