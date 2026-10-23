@@ -2,6 +2,8 @@ import { NavLink } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BookOpen,
+  FileCode2,
+  Gauge,
   ExternalLink,
   Hash,
   Info,
@@ -20,10 +22,12 @@ const primary: { to: string; label: string; icon: LucideIcon; end?: boolean }[] 
   { to: '/', label: 'Lifecycle Map', icon: Orbit, end: true },
   { to: '/layers', label: 'Architecture Layers', icon: Layers },
   { to: '/flows', label: 'Flow Chains', icon: Workflow },
+  { to: '/coverage', label: 'Coverage Assessment', icon: Gauge },
 ];
 
 const reference: { to: string; label: string; icon: LucideIcon }[] = [
   { to: '/matrix', label: 'Detection Matrix', icon: Table2 },
+  { to: '/detections', label: 'Detections', icon: FileCode2 },
   { to: '/events', label: 'Event IDs', icon: Hash },
   { to: '/tools', label: 'Tool Arsenal', icon: Wrench },
 ];

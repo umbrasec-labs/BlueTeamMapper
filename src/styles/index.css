@@ -93,6 +93,10 @@
     @apply inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-medium text-fog-bright transition hover:border-ember/60 hover:bg-ember/10 active:scale-[0.98];
   }
 
+  .btn:disabled {
+    @apply pointer-events-none opacity-40;
+  }
+
   .btn-primary {
     @apply border-ember/70 bg-ember/15 text-white hover:bg-ember/25;
   }

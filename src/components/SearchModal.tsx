@@ -13,6 +13,8 @@ import {
   Workflow,
   Wrench,
   GitCommitHorizontal,
+  FileCode2,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { kindLabel, kindOrder, search, type SearchDoc, type SearchKind } from '@/lib/search';
@@ -28,6 +30,8 @@ const kindIcon: Record<SearchKind, LucideIcon> = {
   event: Hash,
   section: BookOpen,
   card: FileText,
+  rule: FileCode2,
+  skill: Sparkles,
 };
 
 /** ⌘K command palette over phases, layers, chains, techniques, events, tools and cards. */

@@ -1,9 +1,12 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowUpDown, ChevronRight, Search, Workflow, X } from 'lucide-react';
+import { ArrowUpDown, ChevronRight, FileCode2, Search, Sparkles, Workflow, X } from 'lucide-react';
 import { findEvent, flowChainById, tactics, techniques, type Severity, type Tactic } from '@/data';
 import { SeverityBadge } from '@/components/Badges';
 import { EmptyState } from '@/components/Feedback';
+import { rulesForTechnique, skillsForTechnique } from '@/data/detections';
+import { coverageMeta } from '@/data/coverage';
+import { useCoverage } from '@/store/coverage';
 import { hueClass, severityMeta } from '@/lib/hues';
 
 const severities: Severity[] = ['critical', 'high', 'medium', 'low'];
@@ -18,6 +21,7 @@ export default function MatrixView() {
   const [tactic, setTactic] = useState<Tactic | 'all'>('all');
   const [sort, setSort] = useState<SortKey>('severity');
   const [open, setOpen] = useState<string | null>(focus);
+  const coverage = useCoverage((s) => s.levels);
 
   useEffect(() => {
     if (!focus) return;
@@ -223,6 +227,24 @@ export default function MatrixView() {
                       <th scope="row" className="px-3 py-2.5 font-medium text-fog-bright">
                         {t.name}
                         <span className="ml-2 font-mono text-2xs font-normal text-ember/80">{t.attackId}</span>
+                        {rulesForTechnique(t.attackId).length > 0 && (
+                          <span
+                            className="ml-2 inline-flex items-center gap-1 rounded border border-teal/40 px-1 font-mono text-2xs font-normal text-teal"
+                            title="UMBRASEC rules available"
+                          >
+                            <FileCode2 aria-hidden className="h-3 w-3" />
+                            {rulesForTechnique(t.attackId).length}
+                          </span>
+                        )}
+                        {coverage[t.id] && (
+                          <span
+                            className="ml-2 rounded px-1 font-mono text-2xs font-normal"
+                            style={{ color: coverageMeta[coverage[t.id]].color }}
+                            title="Your coverage assessment"
+                          >
+                            {coverageMeta[coverage[t.id]].label}
+                          </span>
+                        )}
                       </th>
                       <td className="px-3 py-2.5 text-fog-dim">{t.tactic}</td>
                       <td className="px-3 py-2.5">{t.detection}</td>
@@ -261,6 +283,33 @@ export default function MatrixView() {
                               ) : (
                                 <span className="text-2xs text-fog-muted">Follow the immediate response above</span>
                               )}
+                            </div>
+                            <div>
+                              <div className="eyebrow mb-1.5">UMBRASEC rules</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {rulesForTechnique(t.attackId).map((r) => (
+                                  <Link key={r.id} to={`/detections?focus=${r.id}`} className="chip border-teal/40 text-teal">
+                                    <FileCode2 aria-hidden className="h-3 w-3" /> {r.file}
+                                  </Link>
+                                ))}
+                                {rulesForTechnique(t.attackId).length === 0 && (
+                                  <span className="text-2xs text-fog-muted">None published yet</span>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="eyebrow mb-1.5">umbra-blue skills</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {skillsForTechnique(t.attackId, 3).map((sk) => (
+                                  <a key={sk.name} href={sk.url} target="_blank" rel="noreferrer" className="chip" title={sk.description}>
+                                    <Sparkles aria-hidden className="h-3 w-3 text-teal" /> {sk.name}
+                                    <span className="text-fog-muted">T{sk.tier}</span>
+                                  </a>
+                                ))}
+                                {skillsForTechnique(t.attackId).length === 0 && (
+                                  <span className="text-2xs text-fog-muted">No paired skill yet</span>
+                                )}
+                              </div>
                             </div>
                             <div>
                               <div className="eyebrow mb-1.5">ATT&amp;CK</div>

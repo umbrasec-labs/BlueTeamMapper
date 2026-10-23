@@ -1,13 +1,15 @@
 import { Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { events, flowChains, layers, phases, sections, techniques, tools } from '@/data';
+import { rules, skills } from '@/data/detections';
 
 const shortcuts: [string, string][] = [
   ['⌘K  or  /', 'Open search'],
   ['1 – 7', 'Select a lifecycle phase'],
   ['← →', 'Cycle phases on the lifecycle map'],
   ['Esc', 'Close the detail panel or search'],
-  ['g then l / a / f / m / t / e', 'Go to lifecycle, architecture, flows, matrix, tools, events'],
+  ['g then l / a / f / c', 'Go to lifecycle, architecture, flows, coverage'],
+  ['g then m / d / t / e', 'Go to matrix, detections, tools, events'],
 ];
 
 export default function AboutView() {
@@ -19,6 +21,7 @@ export default function AboutView() {
     ['ATT&CK techniques', techniques.length],
     ['Event IDs', events.length],
     ['Tools', tools.length],
+    ['UMBRASEC rules', rules.length],
   ];
   return (
     <article className="mx-auto max-w-3xl space-y-8">
@@ -70,10 +73,27 @@ export default function AboutView() {
         </dl>
       </section>
 
+      <section className="text-[13px] leading-relaxed">
+        <h3 className="eyebrow mb-3">Part of the UMBRASEC toolkit</h3>
+        <p>
+          Detections come straight from the{' '}
+          <a className="text-ember hover:underline" href="https://umbrasec.dev/tools/sigma-pack/" target="_blank" rel="noreferrer">
+            UMBRASEC sigma-pack
+          </a>{' '}
+          and the{' '}
+          <a className="text-ember hover:underline" href="https://github.com/umbrasec-labs/umbra-blue" target="_blank" rel="noreferrer">
+            umbra-blue
+          </a>{' '}
+          skill library ({skills.length} skills). They are synced on every deploy, so the rules shown here are always the
+          canonical published copies.
+        </p>
+      </section>
+
       <section className="text-[13px] leading-relaxed text-fog-dim">
         <h3 className="eyebrow mb-3">Notes</h3>
         <p>
-          Runs entirely in your browser as a static site. There's no backend and nothing is fetched at runtime. ATT&amp;CK
+          Runs entirely in your browser as a static site. There's no backend and nothing is fetched at runtime. Your
+          coverage assessment is stored only in this browser. ATT&amp;CK
           technique IDs are linked to attack.mitre.org for reference. Content is a practitioner reference, not vendor
           guidance: validate every control and query in your own environment before relying on it.
         </p>
