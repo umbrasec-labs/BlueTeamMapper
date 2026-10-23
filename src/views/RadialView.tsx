@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { ArrowRight, Workflow } from 'lucide-react';
 import { flowChains, layers, phaseById, phases, techniques, tools, type PhaseId } from '@/data';
 import { RadialMap } from '@/components/RadialMap';
@@ -74,9 +75,10 @@ export function RadialView() {
           </div>
         </header>
 
-        <div className="relative flex justify-center py-2">
+        {/* The ring glides to its new center when the detail panel opens or closes. */}
+        <motion.div layout transition={{ type: 'spring', stiffness: 260, damping: 32 }} className="flex flex-col items-center py-2">
           <RadialMap selected={selected} onSelect={(id) => select(id === selected ? null : id)} />
-          <div className="pointer-events-none absolute bottom-2 left-0 hidden space-y-1.5 font-mono text-2xs text-fog-muted md:block">
+          <div className="mt-1 hidden flex-wrap items-center justify-center gap-x-6 gap-y-2 font-mono text-2xs text-fog-muted md:flex">
             <div className="flex items-center gap-2">
               <svg width="28" height="6" aria-hidden>
                 <line x1="0" y1="3" x2="28" y2="3" stroke="#f25623" strokeWidth="2" />
@@ -89,12 +91,12 @@ export function RadialView() {
               </svg>
               Feedback loop
             </div>
+            <div>
+              <kbd className="kbd">1</kbd>–<kbd className="kbd">7</kbd> select · <kbd className="kbd">←</kbd>
+              <kbd className="kbd">→</kbd> cycle · <kbd className="kbd">Esc</kbd> close
+            </div>
           </div>
-          <div className="pointer-events-none absolute bottom-2 right-0 hidden text-right font-mono text-2xs text-fog-muted md:block">
-            <kbd className="kbd">1</kbd>–<kbd className="kbd">7</kbd> select · <kbd className="kbd">←</kbd>
-            <kbd className="kbd">→</kbd> cycle · <kbd className="kbd">Esc</kbd> close
-          </div>
-        </div>
+        </motion.div>
 
         <section aria-label="All phases" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
           {phases.map((p) => (
