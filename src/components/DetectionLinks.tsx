@@ -11,7 +11,7 @@ import { skillPath, type BlueSkill, type DetectionRule } from '@/data/detections
 import { useCoverage } from '@/store/coverage';
 import { hueClass } from '@/lib/hues';
 import { icons } from '@/lib/icons';
-import { SeverityBadge, TierBadge } from './Badges';
+import { ClaimsBadge, SeverityBadge, TierBadge } from './Badges';
 
 /** Sigma rule levels. Written out in full so the JIT compiler can see them. */
 export const ruleLevelClass: Record<string, string> = {
@@ -114,6 +114,7 @@ export function RuleList({ rules }: { rules: DetectionRule[] }) {
                 <span aria-hidden>·</span>
                 <span>{r.attackIds.join(' · ')}</span>
                 {r.level && <span className={`rounded border px-1 ${ruleLevelClass[r.level] ?? ''}`}>{r.level}</span>}
+                {r.claims && <ClaimsBadge claims={r.claims} />}
               </span>
             </span>
           </Link>

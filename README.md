@@ -25,7 +25,7 @@ queries, all in one visual reference.
 | `/layers/:id` | **Architecture Layers** | 10 stacked bands (Visibility, Endpoint, Detection, Response, Threat Hunting, Identity, Hardening, Network, Cloud, Intel & Deception). Expanding a band reveals P0/P1/P2 key controls, callouts, tree matrices, reference cards, hunt queries and tools. |
 | `/flows/:id?step=` | **Flow Chains** | React Flow graphs for Phishing, EDR Alert, Credential Compromise, Ransomware, DCSync, Cloud Token Theft, ADCS Exploitation and Data Exfiltration, with decision branches and analyst-approval gates. Click a step for actions, evidence (linked to event IDs), tools and common mistakes. |
 | `/matrix?focus=` | **Technique Detection Matrix** | 22 techniques with ATT&CK IDs and tactics. Filter by text, severity or tactic; sort; expand a row for event IDs to pull, the chain to run, UMBRASEC rules and the paired umbra-blue skills. |
-| `/detections?focus=&tab=` | **Detections** | Every rule and query in the [UMBRASEC sigma-pack](https://umbrasec.dev/tools/sigma-pack/), shown as the canonical copy with writeup, false positives and copy button, plus all [umbra-blue](https://github.com/umbrasec-labs/umbra-blue) skills by tier. |
+| `/detections?focus=&tab=` | **Detections** | Every rule and query in the [UMBRASEC sigma-pack](https://umbrasec.dev/tools/sigma-pack/), shown as the canonical copy with writeup, false positives and copy button, plus all [umbra-blue](https://github.com/umbrasec-labs/umbra-blue) skills by tier. Each rule shows its [Claims Ledger](https://github.com/umbrasec-labs/detections) status (verified, not executed, stale, failing or mismatch), the blind spots and false positives the ledger proved, and the findings it tracks upstream. |
 | `/runbooks` | **IR Runbooks** | Run any flow chain as a live checklist during a real incident. Start a run from this page or with **Start runbook** on a flow chain, then tick actions, record who approved each gate, pick the branch you take and write notes. Every change lands on a timestamped timeline. Open and closed runs are listed with progress and elapsed time. Import a run from its JSON export. Stored only in your browser. |
 | `/runbooks/:runId` | **Live run** | One incident: steps on the chosen path with actions, notes, approval gates and branch buttons; branches and steps not taken; a live timeline with free-text entries; an elapsed clock. Close or reopen the incident. Export a Markdown timeline (copy or download) for the ticket or RCA, or the run as JSON. |
 | `/skills/:name` | **Skill page** | One umbra-blue skill: tier and what it means, its ATT&CK and ATLAS IDs, the matrix techniques it covers (with your coverage rating), the UMBRASEC rules it ships and other rules for the same techniques, the flow chains it leads to, and the claude-red skills it answers. Links to its `SKILL.md`. |
@@ -94,6 +94,7 @@ npm run build      # typecheck + production build into dist/
 npm run preview    # serve dist/ locally
 npm run extract    # re-extract v3 content into src/data/legacy/ (needs python3 + beautifulsoup4)
 npm run sync:detections   # pull rules + skills from ../umbrasec.dev and ../umbra-blue
+npm run sync:detections -- --claims ../detections/out/claims.json   # also attach Claims Ledger status
 ```
 
 ## Deploying to GitHub Pages
@@ -109,6 +110,12 @@ The build output in `dist/` is a plain static site.
 2. Push to `main`. The workflow checks out the sigma-pack and umbra-blue, runs `npm run sync:detections`,
    builds, and publishes `dist/`. It also rebuilds daily, so newly published rules and skills appear
    without a commit here.
+
+**Claims Ledger.** Before the sync, the workflow checks out [umbrasec-labs/detections](https://github.com/umbrasec-labs/detections),
+sets up Python 3.12, installs the hash-locked harness and runs it against the same umbrasec.dev checkout the sync
+reads (`python -m harness.run --upstream ../umbrasec.dev --out ../claims --exit-zero`). The sync gets the resulting
+`claims.json` through `--claims`, hashes each rule file and shows **Mismatch** if the bytes differ from the ones the
+harness proved. If any harness step fails, the sync runs without claims and the deploy goes ahead.
 
 ```yaml
 # .github/workflows/deploy.yml (abridged)
@@ -264,6 +271,11 @@ the muted eight-hue coding set from v3 so categories and severities stay disting
 - ATLAS links keep the `AML.` prefix, so they open the right page on atlas.mitre.org
 - Search always reopens empty, even when you start typing straight away
 - A link to another page opens it at the top. Back and Forward keep your place
+- Claims Ledger in the Detections view: each rule shows its status from umbrasec-labs/detections, such as
+  **Claims verified 9/9** or **KQL: not executed**, with the blind spots and false positives the ledger proved
+  and the findings it tracks upstream. Skill and technique pages show the same chip next to each rule
+- The deploy re-runs the claims harness on the sigma-pack checkout the mapper shows. A rule whose bytes differ
+  from the proved bytes shows as **Mismatch**, and a harness failure never blocks the deploy
 
 ### v4.1
 - Detections view: UMBRASEC sigma-pack rules (canonical copy) and umbra-blue skills, synced at build time

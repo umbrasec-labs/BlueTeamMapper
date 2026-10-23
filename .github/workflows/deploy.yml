@@ -29,16 +29,51 @@ jobs:
           cache: npm
       - run: npm ci
       # Detections come from the canonical sources, synced fresh on every deploy.
+      # The Claims Ledger harness reads the writeups in research/ as well as the rules.
       - uses: actions/checkout@v4
         with:
           repository: umbrasec-labs/umbrasec.dev
           path: .sources/umbrasec.dev
-          sparse-checkout: tools/sigma-pack
+          sparse-checkout: |
+            tools/sigma-pack
+            research
       - uses: actions/checkout@v4
         with:
           repository: umbrasec-labs/umbra-blue
           path: .sources/umbra-blue
-      - run: npm run sync:detections -- --sigma-pack .sources/umbrasec.dev/tools/sigma-pack --umbra-blue .sources/umbra-blue
+      # Claims Ledger: re-prove each rule's claims against the same umbrasec.dev checkout the
+      # sync reads, so the claims shown were proved on the exact bytes the mapper displays.
+      # Every step here may fail without blocking the deploy; the sync then runs without claims.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        continue-on-error: true
+        timeout-minutes: 3
+        with:
+          repository: umbrasec-labs/detections
+          path: .sources/detections
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        continue-on-error: true
+        timeout-minutes: 3
+        with:
+          python-version: '3.12'
+      - name: Install the claims harness
+        continue-on-error: true
+        timeout-minutes: 5
+        run: python -m pip install --require-hashes --no-deps -r .sources/detections/requirements.txt
+      - name: Prove the claims
+        continue-on-error: true
+        timeout-minutes: 5
+        working-directory: .sources/detections
+        run: python -m harness.run --upstream ../umbrasec.dev --out ../claims --exit-zero
+      - name: Sync detections
+        run: |
+          claims=()
+          if [ -f .sources/claims/claims.json ]; then
+            claims=(--claims .sources/claims/claims.json)
+          else
+            echo "::warning::No claims.json from the harness. Syncing without claims."
+          fi
+          npm run sync:detections -- --sigma-pack .sources/umbrasec.dev/tools/sigma-pack --umbra-blue .sources/umbra-blue "${claims[@]}"
       # Project site at https://<owner>.github.io/<repo>/. For a user/org site or a
       # custom domain served from the root, set VITE_BASE: /
       - run: npm run build
