@@ -1,18 +1,10 @@
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, CheckCircle2, Hand, Radar } from 'lucide-react';
-import { findEvent, phaseById, type FlowChain, type FlowStep } from '@/data';
+import { phaseById, type FlowChain, type FlowStep } from '@/data';
+import { evidenceLink } from '@/lib/evidence';
 import { stepEdges } from '@/lib/graphLayout';
 import { PanelSection } from './DetailPanel';
 import { PhasePill } from './Badges';
-
-/** Turn evidence strings like "Sysmon 10 (ProcessAccess)" or "Event 4662" into event links. */
-function evidenceLink(text: string): string | null {
-  const sysmon = text.match(/^Sysmon (\d+)/);
-  if (sysmon && findEvent('sysmon', Number(sysmon[1]))) return `/events?focus=sysmon-${sysmon[1]}`;
-  const sec = text.match(/^Event (\d{4})/);
-  if (sec && findEvent('security', Number(sec[1]))) return `/events?focus=security-${sec[1]}`;
-  return null;
-}
 
 export function StepDetail({
   chain,

@@ -547,8 +547,13 @@ export const flowChains: FlowChain[] = [
   },
 ];
 
-export const flowChainById: Record<string, FlowChain> = Object.fromEntries(
-  flowChains.map((c) => [c.id, c]),
+/**
+ * Null prototype, so ids that come from a URL or an imported file, such as "constructor"
+ * or "toString", find nothing instead of an inherited Object method.
+ */
+export const flowChainById: Record<string, FlowChain> = Object.assign(
+  Object.create(null),
+  Object.fromEntries(flowChains.map((c) => [c.id, c])),
 );
 
 /** Chains that pass through a given phase. */

@@ -12,6 +12,7 @@ const titles: [RegExp, string][] = [
   [/^\/$/, 'Defense Lifecycle'],
   [/^\/layers/, 'Architecture Layers'],
   [/^\/flows/, 'Defense Flow Chains'],
+  [/^\/runbooks/, 'IR Runbooks'],
   [/^\/matrix/, 'Technique Detection Matrix'],
   [/^\/detections/, 'Detections'],
   [/^\/coverage/, 'Coverage Assessment'],
@@ -41,12 +42,13 @@ export function Layout() {
         e.preventDefault();
         openSearch();
       } else if (e.key === 'g') {
-        // Quick view switching: L lifecycle, A architecture, F flows, M matrix, D detections, C coverage, T tools, E events.
+        // Quick view switching: L lifecycle, A architecture, F flows, R runbooks, M matrix, D detections, C coverage, T tools, E events.
         const onNext = (n: KeyboardEvent) => {
           const routes: Record<string, string> = {
             l: '/',
             a: '/layers',
             f: '/flows',
+            r: '/runbooks',
             m: '/matrix',
             d: '/detections',
             c: '/coverage',
