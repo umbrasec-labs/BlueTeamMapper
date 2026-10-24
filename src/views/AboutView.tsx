@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
+import { RED_TEAM_MAPPER_URL } from '@/lib/links';
 import { events, flowChains, layers, phases, sections, techniques, tools } from '@/data';
 import { rules, skills } from '@/data/detections';
 
@@ -37,7 +38,7 @@ export default function AboutView() {
           Red vs blue works best when both sides speak the same language. The{' '}
           <a
             className="text-ember underline-offset-2 hover:underline"
-            href="https://umbrasec-labs.github.io/RedTeamMapper/"
+            href={RED_TEAM_MAPPER_URL}
             target="_blank"
             rel="noreferrer"
           >
