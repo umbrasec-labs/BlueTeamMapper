@@ -19,6 +19,7 @@ import {
 import { sectionById } from '@/data';
 import { useRunbooks } from '@/store/runbooks';
 import { useUi } from '@/store/ui';
+import { RED_TEAM_MAPPER_URL } from '@/lib/links';
 
 const primary: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
   { to: '/', label: 'Lifecycle Map', icon: Orbit, end: true },
@@ -135,7 +136,7 @@ function NavContents() {
           <Info aria-hidden className="h-3 w-3" /> About this mapper
         </NavLink>
         <a
-          href="https://umbrasec-labs.github.io/RedTeamMapper/"
+          href={RED_TEAM_MAPPER_URL}
           target="_blank"
           rel="noreferrer"
           className="flex items-center gap-1.5 hover:text-fog-bright"
