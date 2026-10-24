@@ -57,7 +57,7 @@ links too.
 | Keys | Action |
 | --- | --- |
 | `⌘K` / `Ctrl+K` / `/` | Open search; `↑` `↓` to move, `↵` to open |
-| `1`–`7` | Select a lifecycle phase |
+| `1`-`7` | Select a lifecycle phase |
 | `←` `→` | Cycle phases on the lifecycle map |
 | `Esc` | Close the detail panel or search |
 | `g` then `l` `a` `f` `r` `c` | Go to lifecycle, architecture, flows, runbooks, coverage |
@@ -108,7 +108,7 @@ The build output in `dist/` is a plain static site.
 1. In the repository, open **Settings → Pages → Build and deployment** and set **Source** to **GitHub Actions**.
    (v3 was served straight from the branch, so this switch is required once.)
 2. Push to `main`. The workflow checks out the sigma-pack and umbra-blue, runs `npm run sync:detections`,
-   builds, and publishes `dist/`. It also rebuilds daily, so newly published rules and skills appear
+   builds, scans `dist/` for secrets and PII, and publishes it. It also rebuilds daily, so newly published rules and skills appear
    without a commit here.
 
 **Claims Ledger.** Before the sync, the workflow checks out [umbrasec-labs/detections](https://github.com/umbrasec-labs/detections),
@@ -117,21 +117,27 @@ reads (`python -m harness.run --upstream ../umbrasec.dev --out ../claims --exit-
 `claims.json` through `--claims`, hashes each rule file and shows **Mismatch** if the bytes differ from the ones the
 harness proved. If any harness step fails, the sync runs without claims and the deploy goes ahead.
 
+**Secrets scan.** After the build, the workflow downloads gitleaks 8.30.1, checks it against the release's
+published sha256, and scans `dist/` (synced content included) with this repo's `.gitleaks.toml`. Unlike the
+harness, a hit here fails the job and nothing is published.
+
 ```yaml
-# .github/workflows/deploy.yml (abridged)
+# .github/workflows/deploy.yml (abridged; the workflow pins each action to a commit SHA)
 on: { push: { branches: [main] }, workflow_dispatch: {} }
 permissions: { contents: read, pages: write, id-token: write }
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run build
         env: { VITE_BASE: "/${{ github.event.repository.name }}/" }
-      - uses: actions/upload-pages-artifact@v3
+      - name: Scan the build for secrets and PII   # gitleaks dir dist; a hit blocks the deploy
+        run: gitleaks dir dist --config .gitleaks.toml --redact --no-banner
+      - uses: actions/upload-pages-artifact@v5.0.0
         with: { path: dist }
   deploy:
     needs: build
@@ -139,7 +145,7 @@ jobs:
     environment: { name: github-pages, url: "${{ steps.deployment.outputs.page_url }}" }
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5.0.1
 ```
 
 ### Base path
