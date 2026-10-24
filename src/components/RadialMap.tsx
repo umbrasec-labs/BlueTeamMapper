@@ -199,10 +199,10 @@ export function RadialMap({ selected, onSelect }: Props) {
         const isHover = hovered === p.id;
         const dim = focus !== null && focus !== p.id;
         const Icon = icons[p.icon];
-        // Icon, label and capability stack vertically around the segment's centroid.
+        // Icon and short label stack around the segment's centroid; the full name lives in the hub.
         const [cx, cy] = toXY((R_IN + R_OUT) / 2, mid(i));
-        const [ix, iy] = [cx, cy - 22];
-        const [lx, ly] = [cx, cy + 6];
+        const [ix, iy] = [cx, cy - 12];
+        const [lx, ly] = [cx, cy + 16];
         const [nx, ny] = toXY(R_OUT + 30, mid(i));
         // Selected and hovered segments slide outward along their bisector.
         const pop = toXY(isSel ? 10 : isHover ? 5 : 0, mid(i));
@@ -229,6 +229,7 @@ export function RadialMap({ selected, onSelect }: Props) {
             animate={{ opacity: dim ? 0.62 : 1, scale: 1, x: pop[0], y: pop[1] }}
             transition={{ type: 'spring', stiffness: 300, damping: 26, opacity: { duration: 0.2 } }}
           >
+            <title>{p.label}</title>
             {isSel && (
               <path
                 d={sectorPath(a0, a1, R_OUT + 2, R_OUT + 7)}
@@ -261,18 +262,6 @@ export function RadialMap({ selected, onSelect }: Props) {
               aria-hidden
             >
               {p.short}
-            </text>
-            <text
-              x={lx}
-              y={ly + 17}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="font-mono"
-              fontSize={9.5}
-              fill="#7d837d"
-              aria-hidden
-            >
-              {p.capabilities[0]}
             </text>
             <text
               x={nx}
