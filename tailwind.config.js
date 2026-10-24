@@ -34,7 +34,7 @@ export default {
         brand: '#4f8fe6', // logo mark only: Blue Team Mapper blue
       },
       fontFamily: {
-        display: ['Syne', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['"Inter Tight"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         sans: ['"IBM Plex Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
