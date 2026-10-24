@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Hand, ListChecks, MousePointerClick } from 'lucide-react';
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Hand, ListChecks, MousePointerClick } from 'lucide-react';
 import { flowChainById, flowChains, phaseById, techniques } from '@/data';
 import { FlowGraph } from '@/components/FlowGraph';
 import { DetailPanel } from '@/components/DetailPanel';
@@ -10,6 +10,28 @@ import { hueClass, hueHex } from '@/lib/hues';
 import { defaultRunTitle } from '@/lib/runbook';
 import { useRunbooks } from '@/store/runbooks';
 import { icons } from '@/lib/icons';
+
+/**
+ * Returns to the page that opened the flow chains. Chain tabs replace history, so one step
+ * back always leaves this view; on a fresh visit there is no history, so it goes to the map.
+ */
+function BackLink() {
+  const navigate = useNavigate();
+  const { key } = useLocation();
+  const cls = 'mb-4 inline-flex items-center gap-1.5 text-[13px] text-fog-muted transition hover:text-ember';
+  if (key === 'default') {
+    return (
+      <Link to="/" className={cls}>
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" /> Lifecycle map
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={() => navigate(-1)} className={cls}>
+      <ArrowLeft aria-hidden className="h-3.5 w-3.5" /> Back
+    </button>
+  );
+}
 
 /** Defense flow chains: chain picker, React Flow graph, step detail panel. */
 export default function FlowsView() {
@@ -49,6 +71,7 @@ export default function FlowsView() {
   return (
     <div className="flex items-start gap-6">
       <div className="min-w-0 flex-1">
+        <BackLink />
         <nav aria-label="Flow chains" className="-mx-1 mb-5 overflow-x-auto pb-1">
           <ul className="flex min-w-max gap-1.5 px-1">
             {flowChains.map((c) => {
@@ -58,6 +81,7 @@ export default function FlowsView() {
                 <li key={c.id}>
                   <Link
                     to={`/flows/${c.id}`}
+                    replace
                     aria-current={active ? 'page' : undefined}
                     className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[13px] transition ${
                       active

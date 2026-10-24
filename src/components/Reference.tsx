@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, Check, ChevronDown, Copy, Info, ShieldAlert, Sparkles } from 'lucide-react';
 import type { Callout, HuntQuery, Matrix, SectionCard as Card } from '@/data/types';
 import { calloutHue, hueClass, toneHue } from '@/lib/hues';
+import { alignComments } from '@/lib/alignComments';
 import { RichText } from './RichText';
 
 export const SectionCard = forwardRef<
@@ -146,7 +147,8 @@ export function QueryBlock({ query }: { query: HuntQuery }) {
         </span>
       </figcaption>
       <pre className="overflow-x-auto bg-ink-950/60 p-4 font-mono text-xs leading-relaxed text-teal">
-        <code>{query.code}</code>
+        {/* Display only: Copy keeps the query exactly as written, ready to paste and run. */}
+        <code>{alignComments(query.code)}</code>
       </pre>
     </figure>
   );
