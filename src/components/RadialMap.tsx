@@ -41,6 +41,13 @@ function arcPath(r: number, a0: number, a1: number, clockwise: boolean) {
   return `M${x0} ${y0} A${r} ${r} 0 ${large} ${sweep} ${x1} ${y1}`;
 }
 
+/** Keep a w by h label box centered at x,y inside the viewBox, so a label near the edge is not clipped. */
+function clampLabel([x, y]: [number, number], w: number, h: number): [number, number] {
+  const mx = VIEW - 4 - w / 2;
+  const my = VIEW - 4 - h / 2;
+  return [Math.max(-mx, Math.min(mx, x)), Math.max(-my, Math.min(my, y))];
+}
+
 const mid = (index: number) => index * SPAN + SPAN / 2;
 const indexOf = Object.fromEntries(phases.map((p, i) => [p.id, i])) as Record<PhaseId, number>;
 
@@ -283,9 +290,10 @@ export function RadialMap({ selected, onSelect }: Props) {
       <g aria-hidden pointerEvents="none">
         {links
           .filter(({ link }) => isLinkActive(link))
-          .map(({ link, labelAt: [x, y] }) => {
+          .map(({ link, labelAt }) => {
             const feedback = link.kind === 'feedback';
             const w = link.label.length * 6 + 16;
+            const [x, y] = clampLabel(labelAt, w, 20);
             return (
               <motion.g
                 key={`label-${link.from}-${link.to}`}
