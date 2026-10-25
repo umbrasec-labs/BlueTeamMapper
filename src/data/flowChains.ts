@@ -276,7 +276,7 @@ export const flowChains: FlowChain[] = [
         label: 'Patient zero + spread scope',
         phase: 'triage',
         detail:
-          'Identify the strain (some have free decryptors) and trace initial access, usually phishing or exposed RDP. Look 2–6 weeks back for staging and exfil: double extortion means restore does not stop the leak.',
+          'Identify the strain (some have free decryptors) and trace initial access, usually phishing or exposed RDP. Look 2-6 weeks back for staging and exfil: double extortion means restore does not stop the leak.',
         actions: ['Identify the strain at nomoreransom.org', 'Trace initial access', 'Scope pre-encryption exfil'],
         evidence: ['VPN / RDP logs', 'Proxy upload volume', 'Event 4624 Type 10'],
       },
@@ -479,7 +479,7 @@ export const flowChains: FlowChain[] = [
         id: 'scan',
         label: 'Locksmith scan all templates',
         phase: 'hardening',
-        detail: 'Run Locksmith across the environment to find ESC1–ESC8 everywhere, not just the template that was abused.',
+        detail: 'Run Locksmith across the environment to find ESC1-ESC8 everywhere, not just the template that was abused.',
         actions: ['Locksmith full scan', 'Schedule quarterly re-scan'],
         tools: ['Locksmith'],
       },
