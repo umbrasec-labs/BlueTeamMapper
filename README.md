@@ -28,16 +28,17 @@ queries, all in one visual reference.
 | `/detections?focus=&tab=` | **Detections** | Every rule and query in the [UMBRASEC sigma-pack](https://umbrasec.dev/tools/sigma-pack/), shown as the canonical copy with writeup, false positives and copy button, plus all [umbra-blue](https://github.com/umbrasec-labs/umbra-blue) skills by tier. Each rule shows its [Claims Ledger](https://github.com/umbrasec-labs/detections) status (verified, not executed, stale, failing or mismatch), the blind spots and false positives the ledger proved, and the findings it tracks upstream. |
 | `/runbooks` | **IR Runbooks** | Run any flow chain as a live checklist during a real incident. Start a run from this page or with **Start runbook** on a flow chain, then tick actions, record who approved each gate, pick the branch you take and write notes. Every change lands on a timestamped timeline. Open and closed runs are listed with progress and elapsed time. Import a run from its JSON export. Stored only in your browser. |
 | `/runbooks/:runId` | **Live run** | One incident: steps on the chosen path with actions, notes, approval gates and branch buttons; branches and steps not taken; a live timeline with free-text entries; an elapsed clock. Close or reopen the incident. Export a Markdown timeline (copy or download) for the ticket or RCA, or the run as JSON. |
-| `/skills/:name` | **Skill page** | One umbra-blue skill: tier and what it means, its ATT&CK and ATLAS IDs, the matrix techniques it covers (with your coverage rating), the UMBRASEC rules it ships and other rules for the same techniques, the flow chains it leads to, and the claude-red skills it answers. Links to its `SKILL.md`. |
+| `/skills/:name` | **Skill page** | One umbra-blue skill (bare `/skills` redirects to `/detections?tab=skills`): tier and what it means, its ATT&CK and ATLAS IDs, the matrix techniques it covers (with your coverage rating), the UMBRASEC rules it ships and other rules for the same techniques, the flow chains it leads to, and the claude-red skills it answers. Links to its `SKILL.md`. |
 | `/attack/:id` | **Technique page** | One ATT&CK or ATLAS ID, with parent and sub-technique matches: matrix techniques, UMBRASEC rules, every umbra-blue skill (exact matches and Tier 1 first), flow chains and the MITRE page. |
 | `/coverage` | **Coverage Assessment** | Tick the log sources you collect and rate each technique Alert / Logged / Blind. Shows a coverage score, critical gaps and techniques that are blind for lack of a source. Export or import an ATT&CK Navigator layer. Stored only in your browser. |
 | `/events?focus=` | **Event ID Reference** | Windows Security and Sysmon events grouped by category, cross-linked to techniques. |
 | `/tools?q=&focus=` | **Tool Arsenal** | 60 tools in 11 categories, with fuzzy search. |
 | `/sections/:id?card=` | **Section reader** | Every v3 section in full: callouts, matrices, cards and SPL hunt queries. |
+| `/about` | **About** | What the mapper is, live counts (phases, layers, flow chains, reference cards, techniques, event IDs, tools, UMBRASEC rules), the keyboard shortcuts and where the rules and skills come from. Linked from the sidebar footer. |
 
 **Global search** (`⌘K`, `Ctrl+K` or `/`) covers phases, layers, chains, steps, techniques, event IDs,
-tools, sections and individual reference cards, and jumps straight to the matching node. Type a technique
-ID such as `T1558.003` to open its technique page.
+tools, UMBRASEC rules, umbra-blue skills, sections and individual reference cards, and jumps straight
+to the matching node. Type a technique ID such as `T1558.003` to open its technique page.
 
 ### Permalinks
 
@@ -72,7 +73,7 @@ links too.
 - **Fuse.js** for client-side fuzzy search
 - **Lucide React** icons
 - **Zustand** for the little global UI state there is
-- **React Router 6** with `BrowserRouter` and a GitHub Pages 404 fallback
+- **React Router 7** with `BrowserRouter` and a GitHub Pages 404 fallback
 - Fonts self-hosted via Fontsource: **Inter Tight** (display and body, matching umbrasec.dev), **JetBrains Mono** (data)
 
 No backend, no runtime API calls, no external UI component library.
@@ -164,8 +165,9 @@ The router's `basename` follows `import.meta.env.BASE_URL`, so nothing else need
 
 GitHub Pages has no SPA rewrites, so a deep link such as `/BlueTeamMapper/flows/ransomware?step=backups`
 would normally 404. The build emits a `404.html` (see `githubPagesSpaFallback` in `vite.config.ts`) that
-encodes the path into the query string and redirects to the app root; a small inline script in
-`index.html` restores the original URL before React boots. Deep links, refreshes and shared links all work.
+encodes the path into the query string and redirects to the app root; `public/spa-restore.js`, loaded
+first by `index.html`, restores the original URL before React boots (an external file, so the build's
+`script-src 'self'` CSP allows it). Deep links, refreshes and shared links all work.
 
 ## Project Structure
 
