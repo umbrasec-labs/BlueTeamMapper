@@ -1,31 +1,33 @@
 # Linked runbooks - design
 
-Date: 2026-10-24. Status: draft for review. No product code yet.
+Date: 2026-10-24. Status: decisions taken 2026-10-25, ready to plan. No product code yet.
 
 Backlog item 2 of "Make the Mappers a tool": when a phishing run takes the
 "Execution found" branch, offer to start a linked EDR Alert run for each
 affected host, so one incident becomes a tree of runs.
 
-## Questions only you can answer
+## Decisions
+
+All six questions were answered on 2026-10-25, each as recommended below.
 
 1. **When can the analyst start the EDR runs: before or after the P1 gate is
-   approved?** The `escalate` step is an approval gate. Recommendation: allow it
+   approved?** Decided: as soon as the step is active. The `escalate` step is an approval gate. Recommendation: allow it
    as soon as the step is active, because triage on a host is not containment
    and waiting for a page to be answered costs time. Isolation stays behind the
    EDR chain's own `isolate` gate.
 2. **Child severity: inherit the phishing run's severity, or use the EDR
-   chain's default (critical)?** Recommendation: the EDR default, since
+   chain's default (critical)?** Decided: the EDR default. Recommendation: the EDR default, since
    execution on a host is the worse event. The analyst can change it.
-3. **One level deep, or can an EDR run spawn more EDR runs?** The EDR chain's
+3. **One level deep, or can an EDR run spawn more EDR runs?** Decided: one level in v1. The EDR chain's
    "Scope lateral movement" step finds more hosts. Recommendation: one level in
    v1, with the data model ready for more.
 4. **Closing a phishing run while linked EDR runs are still open: warn or
-   block?** Recommendation: warn, the same way closing an unfinished run warns
+   block?** Decided: warn. Recommendation: warn, the same way closing an unfinished run warns
    today.
 5. **Deleting a phishing run that has linked runs: keep the children or offer
-   to delete them too?** Recommendation: keep them. They show "parent not in
+   to delete them too?** Decided: keep them. Recommendation: keep them. They show "parent not in
    this browser" and keep their own record.
-6. **Add Vitest as a dev dependency for the pure helpers?** The repo has no test
+6. **Add Vitest as a dev dependency for the pure helpers?** Decided: yes, for `src/lib` only. The repo has no test
    runner today (only `tsc -b` and manual browser checks). Recommendation: yes,
    for `src/lib` only.
 
