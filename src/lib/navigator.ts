@@ -31,12 +31,14 @@ interface NavigatorLayer {
 
 const SOURCES_KEY = 'btm:sources';
 const SOURCE_TAG = 'btm:technique';
+/** IDs that ATT&CK v19 revoked, so layers exported before the v20 move still import. */
+const REVOKED_IDS: Record<string, string> = { 'T1574.002': 'T1574.001' };
 
 export function buildLayer(levels: Record<string, CoverageLevel>, sources: Record<string, boolean>): NavigatorLayer {
   const assessed = techniques.filter((t) => levels[t.id]);
   return {
     name: 'Blue Team Mapper coverage',
-    versions: { attack: '17', navigator: '5.1.0', layer: '4.5' },
+    versions: { attack: '20', navigator: '5.1.0', layer: '4.5' },
     domain: 'enterprise-attack',
     description: `Coverage self-assessment exported from Blue Team Mapper. ${assessed.length} of ${techniques.length} techniques assessed.`,
     techniques: assessed.map((t) => {
@@ -101,7 +103,8 @@ export function parseLayer(text: string): { levels: Record<string, CoverageLevel
     }
     const level = levelFromScore(nt.score);
     if (!level) continue;
-    for (const t of techniques) if (t.attackId === nt.techniqueID) levels[t.id] = level;
+    const id = REVOKED_IDS[nt.techniqueID] ?? nt.techniqueID;
+    for (const t of techniques) if (t.attackId === id) levels[t.id] = level;
   }
   const sourceList = layer.metadata?.find((m) => m.name === SOURCES_KEY)?.value.split('|').filter(Boolean) ?? [];
   const known = new Set(logSources.map((s) => s.label));
