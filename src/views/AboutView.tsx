@@ -6,7 +6,7 @@ import { rules, skills } from '@/data/detections';
 
 const shortcuts: [string, string][] = [
   ['⌘K  or  /', 'Open search'],
-  ['1 – 7', 'Select a lifecycle phase'],
+  ['1-7', 'Select a lifecycle phase'],
   ['← →', 'Cycle phases on the lifecycle map'],
   ['Esc', 'Close the detail panel or search'],
   ['g then l / a / f / r / c', 'Go to lifecycle, architecture, flows, runbooks, coverage'],

@@ -92,7 +92,7 @@ export function RadialView() {
               Feedback loop
             </div>
             <div>
-              <kbd className="kbd">1</kbd>–<kbd className="kbd">7</kbd> select · <kbd className="kbd">←</kbd>
+              <kbd className="kbd">1</kbd>-<kbd className="kbd">7</kbd> select · <kbd className="kbd">←</kbd>
               <kbd className="kbd">→</kbd> cycle · <kbd className="kbd">Esc</kbd> close
             </div>
           </div>

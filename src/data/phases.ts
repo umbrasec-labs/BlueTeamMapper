@@ -103,7 +103,7 @@ export const phases: Phase[] = [
     capabilities: ['Patch · LAPS', 'ASR · ADCS', 'MFA · Baselines'],
     objectives: [
       'FIDO2 / passkeys for all Tier 0 accounts first, then admins, then everyone',
-      'Enable ASR rules in audit, move to block after 2–4 weeks; enforce Tamper Protection',
+      'Enable ASR rules in audit, move to block after 2-4 weeks; enforce Tamper Protection',
       'Run Locksmith and fix ESC1 / ESC4 / ESC6; enable CA audit events 4886/4887/4899',
       'Patch CISA KEV within 7 days regardless of CVSS',
     ],
