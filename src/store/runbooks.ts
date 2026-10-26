@@ -2,10 +2,10 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { flowChainById, type Severity } from '@/data';
 import { defaultRunTitle, isFinished, own, RUN_ID_RE, runPath, successors, type Run, type StepRecord, type StepStatus } from '@/lib/runbook';
-import { activate, draft, freeId, newRun, normalize, type Draft } from '@/lib/runLinks';
+import { activate, buildLinkedRuns, draft, freeId, newRun, normalize, spawnTickLocked, type Draft } from '@/lib/runLinks';
 import { severityMeta } from '@/lib/hues';
 
-export type { LogEntry, LogKind, Run, StepRecord, StepStatus } from '@/lib/runbook';
+export type { LogEntry, LogKind, Run, RunLink, StepRecord, StepStatus } from '@/lib/runbook';
 
 /**
  * Live IR runbook runs. Like the coverage assessment, these live only in this
@@ -41,6 +41,11 @@ interface RunbooksState {
   deleteRun: (runId: string) => void;
   /** Adds a validated run. The id is new if the file's id is taken or not valid. */
   importRun: (run: Run) => { id: string; reason: ImportIdReason };
+  /**
+   * One linked run per new host from a spawn step of an open run, in one write. Returns the new
+   * runs' ids; empty when nothing started (closed run, step off the path, hosts already linked).
+   */
+  startLinkedRuns: (parentId: string, stepId: string, hosts: string[]) => string[];
 }
 
 const STORE_KEY = 'btm-runbooks-v1';
@@ -173,7 +178,7 @@ export const useRunbooks = create<RunbooksState>()(
   persist(
     (set) => {
       /** Apply a change to one run. Closed runs only accept `allowClosed` changes. */
-      const mutate = (runId: string, fn: (d: Draft) => void, { allowClosed = false } = {}) =>
+      const mutate = (runId: string, fn: (d: Draft, runs: Record<string, Run>) => void, { allowClosed = false } = {}) =>
         set((state) => {
           const runs = latestRuns(state.runs);
           const current = own(runs, runId);
@@ -182,8 +187,15 @@ export const useRunbooks = create<RunbooksState>()(
           if (!current || !chain || (current.status === 'closed' && !allowClosed)) return runs === state.runs ? state : { runs };
           const run: Run = structuredClone(current);
           normalize(run, chain);
-          fn(draft(run, chain, new Date().toISOString()));
+          fn(draft(run, chain, new Date().toISOString()), runs);
           return { runs: { ...runs, [runId]: run } };
+        });
+
+      /** A write that may touch several runs. `fn` returns its input unchanged when there is nothing to do. */
+      const write = (fn: (runs: Record<string, Run>) => Record<string, Run>) =>
+        set((state) => {
+          const next = fn(latestRuns(state.runs));
+          return next === state.runs ? state : { runs: next };
         });
 
       return {
@@ -230,10 +242,13 @@ export const useRunbooks = create<RunbooksState>()(
           }),
 
         toggleAction: (runId, stepId, index) =>
-          mutate(runId, (d) => {
+          mutate(runId, (d, runs) => {
             const s = d.run.steps[stepId];
-            const text = d.chain.steps.find((x) => x.id === stepId)?.actions[index];
+            const step = d.chain.steps.find((x) => x.id === stepId);
+            const text = step?.actions[index];
             if (!s || text === undefined) return;
+            // The tick records that linked runs started here; it keeps the step through a branch change.
+            if (s.actions[index] && step && spawnTickLocked(runs, runId, step, index)) return;
             activate(d, stepId);
             s.actions[index] = !s.actions[index];
             d.log('action', `${s.actions[index] ? 'Checked' : 'Unchecked'}: ${text}`, stepId);
@@ -344,6 +359,16 @@ export const useRunbooks = create<RunbooksState>()(
             return { runs: { ...runs, [id]: { ...incoming, id } } };
           });
           return result;
+        },
+
+        startLinkedRuns: (parentId, stepId, hosts) => {
+          let started: string[] = [];
+          write((runs) => {
+            const out = buildLinkedRuns(runs, flowChainById, parentId, stepId, hosts, new Date().toISOString());
+            started = out?.started ?? [];
+            return out?.runs ?? runs;
+          });
+          return started;
         },
       };
     },
