@@ -1,5 +1,6 @@
 import type { FlowChain, FlowStep, Severity } from '@/data/types';
 import {
+  byStart,
   childRuns,
   defaultChildTitle,
   HOST_MAX,
@@ -268,4 +269,29 @@ export function childrenLeavingPath(
     const l = linkOf(c);
     return !!l && now.has(l.stepId) && !stays.has(l.stepId);
   });
+}
+
+export interface RunGroup {
+  run: Run;
+  /** Linked runs shown nested under `run`, in start order. */
+  children: Run[];
+}
+
+/**
+ * Lay out one section of the runbooks list (runs of one status, newest first). A linked run sits
+ * under its parent when the parent is in the same section and is not itself linked; otherwise it
+ * stays at the top level, where its row shows a "Linked from" chip.
+ */
+export function groupRuns(section: Run[], runs: Record<string, Run>): RunGroup[] {
+  const ids = new Set(section.map((r) => r.id));
+  const under = new Map<string, Run[]>();
+  const top: Run[] = [];
+  for (const r of section) {
+    const l = linkOf(r);
+    const p = l && own(runs, l.runId);
+    if (p && p.id !== r.id && ids.has(p.id) && p.status === r.status && !linkOf(p)) {
+      under.set(p.id, [...(under.get(p.id) ?? []), r]);
+    } else top.push(r);
+  }
+  return top.map((run) => ({ run, children: (under.get(run.id) ?? []).sort(byStart) }));
 }

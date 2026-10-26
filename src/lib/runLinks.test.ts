@@ -8,6 +8,7 @@ import {
   closeRunIn,
   deleteRunIn,
   freeId,
+  groupRuns,
   newRun,
   reopenRunIn,
   spawnTickLocked,
@@ -250,5 +251,30 @@ describe('childrenLeavingPath', () => {
   it('counts the linked runs whose step leaves the path on the other branch', () => {
     expect(childrenLeavingPath(phishing, { triage: 'escalate' }, 'triage', 'block', kids)).toHaveLength(2);
     expect(childrenLeavingPath(phishing, { triage: 'escalate' }, 'triage', 'escalate', kids)).toHaveLength(0);
+  });
+});
+
+describe('groupRuns', () => {
+  const tree = start({ parent01: parentRun() }, ['WS-0142', 'WS-0187'])!.runs;
+
+  it('nests children under a parent with the same status, in start order', () => {
+    const groups = groupRuns([tree.child002, tree.child001, tree.parent01], tree);
+    expect(groups.map((g) => [g.run.id, g.children.map((c) => c.id)])).toEqual([['parent01', ['child001', 'child002']]]);
+  });
+
+  it('keeps a child at the top level when the parent has another status or is missing', () => {
+    const closed = closeRunIn(tree, chains, 'parent01', T1);
+    expect(groupRuns([closed.child002, closed.child001], closed).map((g) => g.run.id)).toEqual(['child002', 'child001']);
+    const orphan = { child001: tree.child001 };
+    expect(groupRuns([orphan.child001], orphan)).toEqual([{ run: orphan.child001, children: [] }]);
+  });
+
+  it('lists runs saved by the current release one per row', () => {
+    const a = fixtureRun('aaaa0001', 'phishing');
+    const b = fixtureRun('bbbb0002', 'edr-alert', { parent: 'x' as unknown as Run['parent'] });
+    expect(groupRuns([a, b], { aaaa0001: a, bbbb0002: b })).toEqual([
+      { run: a, children: [] },
+      { run: b, children: [] },
+    ]);
   });
 });

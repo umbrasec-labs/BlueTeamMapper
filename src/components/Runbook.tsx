@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Trash2 } from 'lucide-react';
-import { stepStatusLabel, type Run, type RunStatus, type StepStatus } from '@/lib/runbook';
+import { childRuns, stepStatusLabel, type Run, type RunStatus, type StepStatus } from '@/lib/runbook';
 import { useRunbooks } from '@/store/runbooks';
 
 /** Shared pieces for the runbook list and the live run view. */
@@ -23,6 +23,8 @@ export function DeleteRunButton({
   const toggled = useRef(false);
   const keepRef = useRef<HTMLButtonElement>(null);
   const deleteRef = useRef<HTMLButtonElement>(null);
+  // A count, not the list: a selector that returns a new array on every call loops under zustand 5.
+  const linked = useRunbooks((s) => childRuns(s.runs, run.id).length);
   useEffect(() => {
     if (!toggled.current) return;
     (confirm ? keepRef : deleteRef).current?.focus();
@@ -36,6 +38,7 @@ export function DeleteRunButton({
     return (
       <span className="flex flex-wrap items-center gap-1.5 rounded-lg border border-ember/40 bg-ember/10 px-2 py-1 text-xs">
         Delete this run and its timeline?
+        {linked > 0 && ` Its ${linked} linked ${linked === 1 ? 'run stays' : 'runs stay'}.`}
         <button
           type="button"
           className="rounded px-2 py-0.5 font-medium text-ember hover:bg-ember/20"
