@@ -4,6 +4,7 @@ import { childRuns, HOSTS_PER_START, type Run } from './runbook';
 import {
   assignImportIds,
   buildLinkedRuns,
+  canLinkFrom,
   childrenLeavingPath,
   closeRunIn,
   deleteRunIn,
@@ -113,6 +114,16 @@ describe('buildLinkedRuns', () => {
     expect(start({ parent01: parentRun({ choices: { triage: 'block' } }) }, ['WS-0142'])).toBeNull();
     expect(buildLinkedRuns({ parent01: parentRun() }, chains, 'parent01', 'block', ['WS-0142'], T0)).toBeNull();
     expect(start({}, ['WS-0142'])).toBeNull();
+  });
+
+  it('canLinkFrom tells a blocked step apart from hosts that are all linked already', () => {
+    const runs = start({ parent01: parentRun() }, ['WS-0142'])!.runs;
+    expect(start(runs, ['WS-0142'], ids('child009'))).toBeNull();
+    expect(canLinkFrom(runs, chains, 'parent01', 'escalate')).toBe(true);
+    expect(canLinkFrom({ parent01: parentRun({ status: 'closed' }) }, chains, 'parent01', 'escalate')).toBe(false);
+    expect(canLinkFrom({ parent01: parentRun({ choices: { triage: 'block' } }) }, chains, 'parent01', 'escalate')).toBe(false);
+    expect(canLinkFrom({ parent01: parentRun() }, chains, 'parent01', 'block')).toBe(false);
+    expect(canLinkFrom({}, chains, 'parent01', 'escalate')).toBe(false);
   });
 
   it('starts at most HOSTS_PER_START new hosts at a time, the first ones given', () => {

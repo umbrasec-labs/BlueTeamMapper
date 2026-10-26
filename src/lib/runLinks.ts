@@ -95,6 +95,16 @@ export const linkName = (run: Run, chains: Chains) => {
   return host ? `${own(chains, run.chainId)?.title ?? run.chainId} on ${host}` : run.title;
 };
 
+/** True when linked runs can start from this step: an open parent, a spawn point, and the step on the path. */
+export function canLinkFrom(runs: Record<string, Run>, chains: Chains, parentId: string, stepId: string): boolean {
+  const parent = own(runs, parentId);
+  const chain = parent && own(chains, parent.chainId);
+  if (!parent || !chain || parent.status !== 'active') return false;
+  const spawns = chain.steps.find((s) => s.id === stepId)?.spawns;
+  if (!spawns || !own(chains, spawns.chainId)) return false;
+  return runPath(chain, parent.choices).steps.some((s) => s.id === stepId);
+}
+
 /**
  * Start one linked run per new host from a spawn step of an open parent, in one edit. Returns null
  * when nothing can start: parent missing or closed, no spawn point, step off the path, or no new
@@ -110,14 +120,13 @@ export function buildLinkedRuns(
   at: string,
   gen: () => string = newRunId,
 ): { runs: Record<string, Run>; started: string[] } | null {
+  if (!canLinkFrom(runs, chains, parentId, stepId)) return null;
   const parent = own(runs, parentId);
   const chain = parent && own(chains, parent.chainId);
-  if (!parent || !chain || parent.status !== 'active') return null;
-  const step = chain.steps.find((s) => s.id === stepId);
+  const step = chain?.steps.find((s) => s.id === stepId);
   const spawns = step?.spawns;
   const childChain = spawns && own(chains, spawns.chainId);
-  if (!step || !spawns || !childChain) return null;
-  if (!runPath(chain, parent.choices).steps.some((s) => s.id === stepId)) return null;
+  if (!parent || !chain || !step || !spawns || !childChain) return null;
 
   const linked = new Set(childRuns(runs, parentId, stepId).map((c) => hostOf(c)?.toLowerCase()));
   const fresh: string[] = [];

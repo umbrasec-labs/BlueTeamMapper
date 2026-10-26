@@ -61,7 +61,7 @@ import {
   runFileName,
   runToMarkdown,
 } from '@/lib/runbookExport';
-import { childrenLeavingPath } from '@/lib/runLinks';
+import { canLinkFrom, childrenLeavingPath } from '@/lib/runLinks';
 import { evidenceLink } from '@/lib/evidence';
 import { useNow } from '@/lib/useNow';
 import { hueClass, severityMeta } from '@/lib/hues';
@@ -252,7 +252,6 @@ function BranchBlock({
           const leavingRuns = on ? [] : childrenLeavingPath(chain, run.choices, step.id, e.target, linkedRuns);
           const leaving = leavingRuns.length;
           const stillOpen = leavingRuns.filter((c) => c.status === 'active').length;
-          const warnId = `${ids.branch(step.id, i)}-warn`;
           const moved = leaving === 1 ? '1 linked run is now' : `${leaving} linked runs are now`;
           const keepRunning =
             stillOpen === 0
@@ -295,7 +294,7 @@ function BranchBlock({
                   {chosen && !on && ' · Not taken'}
                 </span>
                 {leaving > 0 && (
-                  <span id={warnId} className="mt-1 block text-2xs text-gold">
+                  <span className="mt-1 block text-2xs text-gold">
                     {leaving === 1 ? '1 linked run was' : `${leaving} linked runs were`} started from a step that leaves the
                     path on this branch.{keepRunning}
                   </span>
@@ -360,6 +359,11 @@ function LinkedRunsBlock({
     e.preventDefault();
     if (!fresh.length) return;
     const started = store().startLinkedRuns(run.id, step.id, fresh);
+    // Nothing started because another tab closed the run or took this step off the path: say so, keep the list.
+    if (!started.length && !canLinkFrom(store().runs, flowChainById, run.id, step.id)) {
+      follow.say(`Could not start ${runs(fresh.length)}: this run is closed or ${step.label} is no longer on its path.`);
+      return;
+    }
     setText('');
     // A host another tab linked in the meantime counts as already linked.
     const wasLinked = already + fresh.length - started.length;
@@ -412,7 +416,7 @@ function LinkedRunsBlock({
           </div>
           <div id={previewId} className="space-y-1.5">
             {fresh.length + already > 0 && (
-              <ul aria-label="Hosts to start" className="flex flex-wrap gap-1.5">
+              <ul aria-label="Hosts entered" className="flex flex-wrap gap-1.5">
                 {fresh.map((h) => (
                   <li key={h} className="chip text-fog-bright">
                     {h}
