@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { flowChainById, type Severity } from '@/data';
-import { defaultRunTitle, isFinished, own, RUN_ID_RE, runPath, successors, type Run, type StepRecord, type StepStatus } from '@/lib/runbook';
+import { defaultRunTitle, isFinished, own, runPath, successors, type Run, type StepRecord, type StepStatus } from '@/lib/runbook';
 import {
   activate,
+  assignImportIds,
   buildLinkedRuns,
   closeRunIn,
   deleteRunIn,
@@ -14,10 +15,12 @@ import {
   reopenRunIn,
   spawnTickLocked,
   type Draft,
+  type ImportIdReason,
 } from '@/lib/runLinks';
 import { severityMeta } from '@/lib/hues';
 
 export type { LogEntry, LogKind, Run, RunLink, StepRecord, StepStatus } from '@/lib/runbook';
+export type { ImportIdReason } from '@/lib/runLinks';
 
 /**
  * Live IR runbook runs. Like the coverage assessment, these live only in this
@@ -29,9 +32,6 @@ export interface NewRun {
   lead?: string;
   severity?: Severity;
 }
-
-/** Why an imported run kept its ID or got a new one. */
-export type ImportIdReason = 'kept' | 'duplicate' | 'invalid';
 
 interface RunbooksState {
   runs: Record<string, Run>;
@@ -53,6 +53,8 @@ interface RunbooksState {
   deleteRun: (runId: string) => void;
   /** Adds a validated run. The id is new if the file's id is taken or not valid. */
   importRun: (run: Run) => { id: string; reason: ImportIdReason };
+  /** Adds the runs of an incident file in one write; links inside the file follow any new ids. */
+  importRuns: (runs: Run[]) => { id: string; reason: ImportIdReason }[];
   /**
    * One linked run per new host from a spawn step of an open run, in one write. Returns the new
    * runs' ids; empty when nothing started (closed run, step off the path, hosts already linked).
@@ -188,7 +190,7 @@ const lastNote = (run: Run, stepId: string) =>
 
 export const useRunbooks = create<RunbooksState>()(
   persist(
-    (set) => {
+    (set, get) => {
       /** Apply a change to one run. Closed runs only accept `allowClosed` changes. */
       const mutate = (runId: string, fn: (d: Draft, runs: Record<string, Run>) => void, { allowClosed = false } = {}) =>
         set((state) => {
@@ -340,17 +342,16 @@ export const useRunbooks = create<RunbooksState>()(
 
         deleteRun: (runId) => write((runs) => deleteRunIn(runs, flowChainById, runId, new Date().toISOString())),
 
-        importRun: (incoming) => {
-          let result: { id: string; reason: ImportIdReason } = { id: '', reason: 'kept' };
-          set((state) => {
-            const runs = latestRuns(state.runs);
-            const valid = RUN_ID_RE.test(incoming.id);
-            const taken = valid && own(runs, incoming.id) !== undefined;
-            const id = valid && !taken ? incoming.id : freeId(runs);
-            result = { id, reason: !valid ? 'invalid' : taken ? 'duplicate' : 'kept' };
-            return { runs: { ...runs, [id]: { ...incoming, id } } };
+        importRun: (incoming) => get().importRuns([incoming])[0],
+
+        importRuns: (incoming) => {
+          let results: { id: string; reason: ImportIdReason }[] = [];
+          write((runs) => {
+            const out = assignImportIds(runs, incoming);
+            results = out.results;
+            return out.runs;
           });
-          return result;
+          return results;
         },
 
         startLinkedRuns: (parentId, stepId, hosts) => {

@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { flowChainById } from '@/data/flowChains';
 import { childRuns, HOSTS_PER_START, type Run } from './runbook';
-import { buildLinkedRuns, closeRunIn, deleteRunIn, freeId, newRun, reopenRunIn, spawnTickLocked } from './runLinks';
+import {
+  assignImportIds,
+  buildLinkedRuns,
+  closeRunIn,
+  deleteRunIn,
+  freeId,
+  newRun,
+  reopenRunIn,
+  spawnTickLocked,
+} from './runLinks';
 import { fixtureRun, ids } from './__fixtures__/runs';
 
 const chains = flowChainById;
@@ -167,5 +176,68 @@ describe('closeRunIn, reopenRunIn and deleteRunIn', () => {
   it('deleting a parent keeps its children', () => {
     const runs = deleteRunIn(tree(), chains, 'parent01', T1);
     expect(Object.keys(runs).sort()).toEqual(['child001', 'child002']);
+  });
+});
+
+describe('assignImportIds', () => {
+  const child = (id: string, parentId: string) =>
+    fixtureRun(id, 'edr-alert', { parent: { runId: parentId, stepId: 'escalate', title: 'P', chainId: 'phishing' } });
+
+  it('keeps free ids', () => {
+    const out = assignImportIds({}, [fixtureRun('parent01', 'phishing'), child('child001', 'parent01')]);
+    expect(out.results).toEqual([
+      { id: 'parent01', reason: 'kept' },
+      { id: 'child001', reason: 'kept' },
+    ]);
+    expect(out.runs.child001.parent?.runId).toBe('parent01');
+  });
+
+  it('rewrites links when the parent id is taken', () => {
+    const existing = { parent01: fixtureRun('parent01', 'phishing') };
+    const out = assignImportIds(existing, [fixtureRun('parent01', 'phishing'), child('child001', 'parent01')], ids('new00001'));
+    expect(out.results[0]).toEqual({ id: 'new00001', reason: 'duplicate' });
+    expect(out.runs.child001.parent?.runId).toBe('new00001');
+    expect(out.runs.parent01).toBe(existing.parent01);
+  });
+
+  it('rewrites links when the parent id is invalid', () => {
+    const out = assignImportIds({}, [fixtureRun('Not Valid', 'phishing'), child('child001', 'Not Valid')], ids('new00001'));
+    expect(out.results[0]).toEqual({ id: 'new00001', reason: 'invalid' });
+    expect(out.runs.child001.parent?.runId).toBe('new00001');
+  });
+
+  it('treats a repeated id in one file as a duplicate and links to the first run with it', () => {
+    const out = assignImportIds({}, [fixtureRun('parent01', 'phishing'), fixtureRun('parent01', 'phishing'), child('child001', 'parent01')], ids('new00001'));
+    expect(out.results.map((r) => r.reason)).toEqual(['kept', 'duplicate', 'kept']);
+    expect(out.runs.child001.parent?.runId).toBe('parent01');
+  });
+
+  it('re-importing into the browser that exported it makes a new copy linked to itself', () => {
+    const existing = start({ parent01: parentRun() }, ['WS-0142', 'WS-0187'])!.runs;
+    // What parseImport gives back for that browser's own incident file: the same runs, every id taken.
+    const file = structuredClone([existing.parent01, ...childRuns(existing, 'parent01')]);
+    const out = assignImportIds(existing, file, ids('new00001', 'new00002', 'new00003'));
+    expect(out.results).toEqual([
+      { id: 'new00001', reason: 'duplicate' },
+      { id: 'new00002', reason: 'duplicate' },
+      { id: 'new00003', reason: 'duplicate' },
+    ]);
+    expect(childRuns(out.runs, 'new00001').map((r) => r.id)).toEqual(['new00002', 'new00003']);
+    expect(childRuns(out.runs, 'parent01').map((r) => r.id)).toEqual(['child001', 'child002']);
+    expect(out.runs.child001).toBe(existing.child001);
+  });
+
+  it('leaves links to runs outside the file alone', () => {
+    const out = assignImportIds({}, [child('child001', 'elsewhere')]);
+    expect(out.runs.child001.parent?.runId).toBe('elsewhere');
+  });
+
+  it('never hands out a new id that a later run in the file uses', () => {
+    const existing = { child001: fixtureRun('child001', 'edr-alert') };
+    const out = assignImportIds(existing, [child('child001', 'parent01'), fixtureRun('next0002', 'phishing')], ids('next0002', 'free0003'));
+    expect(out.results).toEqual([
+      { id: 'free0003', reason: 'duplicate' },
+      { id: 'next0002', reason: 'kept' },
+    ]);
   });
 });

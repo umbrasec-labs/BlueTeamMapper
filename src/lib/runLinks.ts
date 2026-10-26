@@ -8,6 +8,7 @@ import {
   linkOf,
   newRunId,
   own,
+  RUN_ID_RE,
   runPath,
   type HostSubject,
   type LogKind,
@@ -210,4 +211,44 @@ export function deleteRunIn(runs: Record<string, Run>, chains: Chains, runId: st
   const next = { ...runs };
   delete next[runId];
   return noteParent(next, chains, cur, 'Linked run deleted', at);
+}
+
+/** Why an imported run kept its ID or got a new one. */
+export type ImportIdReason = 'kept' | 'duplicate' | 'invalid';
+
+/**
+ * Add imported runs. A run keeps its file id unless the id is invalid or already used (here or
+ * earlier in the same file), and a new id never takes one the file uses. Links between runs of the
+ * same file follow the new ids; when a file repeats an id, links point at the first run with it.
+ * Links to runs outside the file stay as they are.
+ */
+export function assignImportIds(
+  existing: Record<string, Run>,
+  incoming: Run[],
+  gen: () => string = newRunId,
+): { runs: Record<string, Run>; results: { id: string; reason: ImportIdReason }[] } {
+  const next = { ...existing };
+  const moved = new Map<string, string>();
+  // A new id never takes one that a later run in the same file still needs.
+  const inFile = new Set(incoming.map((r) => r.id));
+  const fresh = () => freeId(next, () => {
+    let id = gen();
+    while (inFile.has(id)) id = gen();
+    return id;
+  });
+  const results = incoming.map((r) => {
+    const valid = RUN_ID_RE.test(r.id);
+    const taken = valid && own(next, r.id) !== undefined;
+    const id = valid && !taken ? r.id : fresh();
+    if (!moved.has(r.id)) moved.set(r.id, id);
+    next[id] = { ...r, id };
+    return { id, reason: (!valid ? 'invalid' : taken ? 'duplicate' : 'kept') as ImportIdReason };
+  });
+  for (const { id } of results) {
+    const run = next[id];
+    const link = linkOf(run);
+    const to = link && moved.get(link.runId);
+    if (link && to && to !== link.runId) next[id] = { ...run, parent: { ...link, runId: to } };
+  }
+  return { runs: next, results };
 }
