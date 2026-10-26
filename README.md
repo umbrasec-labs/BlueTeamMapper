@@ -287,6 +287,16 @@ the muted eight-hue coding set from v3 so categories and severities stay disting
   and the findings it tracks upstream. Skill and technique pages show the same chip next to each rule
 - The deploy re-runs the claims harness on the sigma-pack checkout the mapper shows. A rule whose bytes differ
   from the proved bytes shows as **Mismatch**, and a harness failure never blocks the deploy
+- Linked runbooks: on a phishing run that took "Execution found", the Escalate to P1 incident step starts one
+  EDR Alert run per affected host (typed or pasted, duplicates skipped, at most 50 at a time). Each linked run
+  has its own checklist and timeline, a "Linked from" line and the host; the parent lists its linked runs with
+  status, progress and current step
+- The runbooks list nests linked runs under their parent when both are open or both are closed; the close
+  confirmation counts open linked runs; changing a branch warns when linked runs were started from a step that
+  leaves the path, and that step keeps its record and its runs under "Left the path"
+- Incident exports: Copy or Download the incident Markdown (the parent then each linked run) and Download
+  incident JSON; Import JSON reads either format and keeps the links when IDs change
+- Tests: Vitest over the pure helpers in src/lib, run in CI on every pull request
 
 ### v4.1
 - Detections view: UMBRASEC sigma-pack rules (canonical copy) and umbra-blue skills, synced at build time
