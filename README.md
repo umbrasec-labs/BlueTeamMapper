@@ -91,6 +91,7 @@ Other scripts:
 
 ```bash
 npm run typecheck  # tsc -b
+npm test           # Vitest over the pure helpers in src/lib
 npm run build      # typecheck + production build into dist/
 npm run preview    # serve dist/ locally
 npm run extract    # re-extract v3 content into src/data/legacy/ (needs python3 + beautifulsoup4)
