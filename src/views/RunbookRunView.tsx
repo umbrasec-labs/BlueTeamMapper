@@ -294,7 +294,8 @@ function BranchBlock({
                   {chosen && !on && ' · Not taken'}
                 </span>
                 {leaving > 0 && (
-                  <span className="mt-1 block text-2xs text-gold">
+                  // The id is not for ARIA: the Task 14 browser check reads the warning through it.
+                  <span id={`${ids.branch(step.id, i)}-warn`} className="mt-1 block text-2xs text-gold">
                     {leaving === 1 ? '1 linked run was' : `${leaving} linked runs were`} started from a step that leaves the
                     path on this branch.{keepRunning}
                   </span>
