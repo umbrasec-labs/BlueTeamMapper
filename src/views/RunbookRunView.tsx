@@ -266,7 +266,7 @@ function BranchBlock({
               id={ids.branch(step.id, i)}
               type="button"
               aria-pressed={on}
-              aria-describedby={leaving ? warnId : undefined}
+              // No aria-describedby: the warning span sits inside the button, so it is already in the accessible name.
               onClick={() => {
                 if (!on)
                   follow.step(
