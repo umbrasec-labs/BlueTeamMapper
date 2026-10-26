@@ -2,9 +2,11 @@ import { flowChainById, type FlowChain, type FlowStep } from '@/data';
 import {
   formatDuration,
   isoUtc,
+  kindLabel,
   localDateTime,
   logText,
   logKindLabel,
+  own,
   runElapsed,
   runPath,
   severities,
@@ -52,7 +54,7 @@ export function runToMarkdown(run: Run, chain: FlowChain, now = Date.now()): str
 
   out.push('## Timeline', '', '| Time (UTC) | Step | Event |', '| --- | --- | --- |');
   for (const e of run.log) {
-    out.push(`| ${isoUtc(e.at)} | ${cell(e.stepId ? label[e.stepId] ?? e.stepId : logKindLabel[e.kind])} | ${cell(logText(e))} |`);
+    out.push(`| ${isoUtc(e.at)} | ${cell(e.stepId ? own(label, e.stepId) ?? String(e.stepId) : kindLabel(e.kind))} | ${cell(logText(e))} |`);
   }
   out.push('');
 

@@ -8,7 +8,7 @@ import { stepEdges, type StepEdge } from './graphLayout';
 
 export type StepStatus = 'pending' | 'active' | 'done' | 'skipped';
 export type RunStatus = 'active' | 'closed';
-export type LogKind = 'run' | 'step' | 'action' | 'note' | 'approval' | 'branch' | 'entry';
+export type LogKind = 'run' | 'step' | 'action' | 'note' | 'approval' | 'branch' | 'entry' | 'link';
 
 export interface StepRecord {
   status: StepStatus;
@@ -62,7 +62,11 @@ export const logKindLabel: Record<LogKind, string> = {
   approval: 'Approval',
   branch: 'Branch',
   entry: 'Entry',
+  link: 'Linked run',
 };
+
+/** Label for any stored kind, including one a later release added: never an inherited method. */
+export const kindLabel = (kind: string) => own(logKindLabel, kind) ?? 'Entry';
 
 /** Timeline text for an entry. Notes store the raw note, so give them a readable form. */
 export function logText(entry: LogEntry): string {

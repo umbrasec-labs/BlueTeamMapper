@@ -1,0 +1,55 @@
+{
+  "state": {
+    "runs": {
+      "k7m2p9qa": {
+        "id": "k7m2p9qa",
+        "chainId": "phishing",
+        "title": "Phishing incident 24 Oct 2026",
+        "lead": "on-call",
+        "severity": "high",
+        "startedAt": "2026-10-24T09:00:00.000Z",
+        "status": "active",
+        "steps": {
+          "received": { "status": "done", "startedAt": "2026-10-24T09:00:00.000Z", "actions": [true, true], "notes": "Reported by finance.", "doneAt": "2026-10-24T09:05:00.000Z" },
+          "gateway": { "status": "done", "startedAt": "2026-10-24T09:05:00.000Z", "actions": [true, false], "notes": "", "doneAt": "2026-10-24T09:12:00.000Z" },
+          "triage": { "status": "done", "startedAt": "2026-10-24T09:12:00.000Z", "actions": [true, true], "notes": "", "doneAt": "2026-10-24T09:30:00.000Z" },
+          "escalate": { "status": "active", "startedAt": "2026-10-24T09:30:00.000Z", "actions": [true, false, false], "notes": "" },
+          "block": { "status": "pending", "actions": [false, false, false], "notes": "" },
+          "hunt": { "status": "pending", "actions": [false, false, false], "notes": "" },
+          "purge": { "status": "pending", "actions": [false, false, false], "notes": "" }
+        },
+        "choices": { "triage": "escalate" },
+        "log": [
+          { "at": "2026-10-24T09:00:00.000Z", "kind": "run", "text": "Incident opened on the Phishing runbook" },
+          { "at": "2026-10-24T09:00:00.000Z", "kind": "step", "text": "Started", "stepId": "received" },
+          { "at": "2026-10-24T09:04:00.000Z", "kind": "note", "text": "Reported by finance.", "stepId": "received" },
+          { "at": "2026-10-24T09:05:00.000Z", "kind": "step", "text": "Marked done", "stepId": "received" },
+          { "at": "2026-10-24T09:30:00.000Z", "kind": "branch", "text": "Took branch \"Execution found\" → Escalate to P1 incident", "stepId": "triage" },
+          { "at": "2026-10-24T09:30:00.000Z", "kind": "step", "text": "Started", "stepId": "escalate" },
+          { "at": "2026-10-24T09:31:00.000Z", "kind": "action", "text": "Checked: Page on-call analyst", "stepId": "escalate" },
+          { "at": "2026-10-24T09:32:00.000Z", "kind": "entry", "text": "Called the mail team" }
+        ]
+      },
+      "q3x8c4vd": {
+        "id": "q3x8c4vd",
+        "chainId": "edr-alert",
+        "title": "EDR Alert incident 23 Oct 2026",
+        "lead": "",
+        "severity": "critical",
+        "startedAt": "2026-10-23T14:00:00.000Z",
+        "closedAt": "2026-10-23T15:00:00.000Z",
+        "status": "closed",
+        "steps": {
+          "alert": { "status": "active", "startedAt": "2026-10-23T14:00:00.000Z", "actions": [false, false], "notes": "" }
+        },
+        "choices": {},
+        "log": [
+          { "at": "2026-10-23T14:00:00.000Z", "kind": "run", "text": "Incident opened on the EDR Alert runbook" },
+          { "at": "2026-10-23T14:00:00.000Z", "kind": "step", "text": "Started", "stepId": "alert" },
+          { "at": "2026-10-23T15:00:00.000Z", "kind": "run", "text": "Incident closed" }
+        ]
+      }
+    }
+  },
+  "version": 1
+}

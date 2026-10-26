@@ -63,6 +63,7 @@ const kindDot: Record<LogKind, string> = {
   approval: 'bg-gold',
   branch: 'bg-mauve',
   entry: 'bg-khaki',
+  link: 'bg-rose',
 };
 
 const store = () => useRunbooks.getState();
@@ -602,7 +603,7 @@ function Timeline({
                 >
                   {localTime(e.at)}
                 </time>
-                <span aria-hidden className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${kindDot[e.kind]}`} />
+                <span aria-hidden className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${own(kindDot, e.kind) ?? kindDot.entry}`} />
                 <div className="min-w-0 flex-1 text-[13px] leading-snug">
                   <p className="whitespace-pre-line text-fog-bright [overflow-wrap:anywhere]">{logText(e)}</p>
                   {e.stepId &&

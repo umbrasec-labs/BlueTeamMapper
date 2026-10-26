@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { flowChainById } from '@/data/flowChains';
-import { formatDuration, runPath } from './runbook';
+import { formatDuration, kindLabel, runPath } from './runbook';
 
 describe('formatDuration', () => {
   it('formats minutes, hours and days', () => {
@@ -18,5 +18,13 @@ describe('runPath', () => {
     expect(runPath(chain, { triage: 'escalate' }).steps.map((s) => s.id)).toEqual([
       'received', 'gateway', 'triage', 'escalate', 'block', 'hunt', 'purge',
     ]);
+  });
+});
+
+describe('kindLabel', () => {
+  it('labels link entries and falls back to Entry for kinds it does not know', () => {
+    expect(kindLabel('link')).toBe('Linked run');
+    expect(kindLabel('handoff')).toBe('Entry');
+    expect(kindLabel('toString')).toBe('Entry');
   });
 });
