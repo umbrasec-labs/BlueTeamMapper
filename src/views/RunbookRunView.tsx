@@ -13,6 +13,7 @@ import {
   GitBranch,
   Hand,
   HardDrive,
+  Link2,
   Lock,
   Pencil,
   Play,
@@ -26,14 +27,20 @@ import {
 import { flowChainById, type FlowChain, type FlowStep, type Severity } from '@/data';
 import { useRunbooks, type LogKind, type Run } from '@/store/runbooks';
 import {
+  childRuns,
   formatDuration,
+  HOST_MAX,
+  hostOf,
+  HOSTS_PER_START,
   isFinished,
   isoUtc,
+  linkOf,
   localDate,
   localDateTime,
   localTime,
   logText,
   own,
+  parseHosts,
   progressCount,
   runElapsed,
   runProgress,
@@ -81,6 +88,8 @@ const ids = {
   branch: (stepId: string, i: number) => `rb-step-${stepId}-branch-${i}`,
   approver: (stepId: string) => `rb-${stepId}-approver`,
   withdraw: (stepId: string) => `rb-step-${stepId}-withdraw`,
+  hosts: (stepId: string) => `rb-${stepId}-hosts`,
+  child: (runId: string) => `rb-linked-${runId}`,
 };
 
 /**
@@ -252,6 +261,152 @@ function BranchBlock({ run, chain, step, follow }: { run: Run; chain: FlowChain;
   );
 }
 
+function LinkedRunRow({ child }: { child: Run }) {
+  const chain = flowChainById[child.chainId];
+  const p = chain ? runProgress(child, chain) : null;
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5">
+      <Link
+        id={ids.child(child.id)}
+        to={`/runbooks/${child.id}`}
+        className="min-w-0 font-mono text-[13px] text-fog-bright [overflow-wrap:anywhere] hover:text-ember"
+      >
+        {hostOf(child) ?? child.title}
+      </Link>
+      <RunStatusChip status={child.status} />
+      <span className="tabular text-2xs text-fog-muted">{p ? `${progressCount(p)} steps` : 'Chain not in this version'}</span>
+      {child.status === 'active' && p?.current && <span className="text-2xs text-fog-muted">Now: {p.current.label}</span>}
+    </li>
+  );
+}
+
+/** Start one linked run per affected host from a spawn step, and list the runs started here. */
+function LinkedRunsBlock({
+  run,
+  step,
+  linked,
+  readOnly,
+  follow,
+}: {
+  run: Run;
+  step: FlowStep;
+  /** Runs linked from this step, in start order. */
+  linked: Run[];
+  readOnly: boolean;
+  follow: FollowUp;
+}) {
+  const [text, setText] = useState('');
+  const spawns = step.spawns;
+  // Hosts already linked from this step, lower-cased. parseHosts sets them aside before its cap.
+  const have = useMemo(() => new Set(linked.map((c) => hostOf(c)?.toLowerCase()).filter((h): h is string => !!h)), [linked]);
+  const parsed = useMemo(() => parseHosts(text, have), [text, have]);
+  if (!spawns) return null;
+  const chainTitle = flowChainById[spawns.chainId]?.title ?? 'linked';
+  const runs = (n: number) => `${chainTitle} ${n === 1 ? 'run' : 'runs'}`;
+  const fresh = parsed.hosts;
+  const already = parsed.already.length;
+  const id = ids.hosts(step.id);
+  const previewId = `${id}-preview`;
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!fresh.length) return;
+    const started = store().startLinkedRuns(run.id, step.id, fresh);
+    setText('');
+    // A host another tab linked in the meantime counts as already linked.
+    const wasLinked = already + fresh.length - started.length;
+    const skipped = [
+      parsed.dupes ? `${parsed.dupes} ${parsed.dupes === 1 ? 'duplicate' : 'duplicates'}` : '',
+      wasLinked ? `${wasLinked} already linked` : '',
+    ]
+      .filter(Boolean)
+      .join(' and ');
+    follow.say(
+      `Started ${started.length} ${runs(started.length)}.${skipped ? ` Skipped ${skipped}.` : ''} ${
+        linked.length + started.length
+      } linked from ${step.label}.`,
+    );
+    focusSoon(...(started[0] ? [ids.child(started[0])] : []), id);
+  };
+
+  return (
+    <div className="rounded-lg border border-rose/30 bg-rose/[0.06] p-3">
+      <div className="flex items-center gap-1.5 text-[13px] font-medium text-rose">
+        <Link2 aria-hidden className="h-4 w-4" /> Linked runs
+      </div>
+      <p className="mt-1 text-2xs text-fog-muted">
+        {spawns.label}: one {chainTitle} run per host, each with its own checklist and timeline.
+      </p>
+      {linked.length > 0 ? (
+        <ul aria-label={`Runs linked from ${step.label}`} className="mt-2 space-y-1.5">
+          {linked.map((c) => (
+            <LinkedRunRow key={c.id} child={c} />
+          ))}
+        </ul>
+      ) : (
+        readOnly && <p className="mt-2 text-[13px] text-fog-dim">No linked runs were started from this step.</p>
+      )}
+      {!readOnly && (
+        <form onSubmit={submit} className="mt-3 space-y-2">
+          <div>
+            <label htmlFor={id} className="mb-1 block text-2xs text-fog-dim">
+              Affected hosts
+            </label>
+            <textarea
+              id={id}
+              value={text}
+              rows={2}
+              onChange={(e) => setText(e.target.value)}
+              aria-describedby={previewId}
+              placeholder="WS-0142, WS-0187 or one per line"
+              className="block w-full resize-y rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 font-mono text-[13px] text-fog-bright outline-none placeholder:font-sans placeholder:text-fog-muted focus:border-ember/50"
+            />
+          </div>
+          <div id={previewId} className="space-y-1.5">
+            {fresh.length + already > 0 && (
+              <ul aria-label="Hosts to start" className="flex flex-wrap gap-1.5">
+                {fresh.map((h) => (
+                  <li key={h} className="chip text-fog-bright">
+                    {h}
+                  </li>
+                ))}
+                {parsed.already.map((h) => (
+                  <li key={h} className="chip text-fog-muted">
+                    <span className="line-through decoration-fog-muted/60">{h}</span>
+                    <span className="text-2xs">already linked</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {parsed.dupes > 0 && (
+              <p className="text-2xs text-fog-muted">
+                {parsed.dupes === 1 ? '1 duplicate' : `${parsed.dupes} duplicates`} left out.
+              </p>
+            )}
+            {parsed.tooLong > 0 && (
+              <p className="text-2xs text-gold">
+                {parsed.tooLong === 1 ? '1 entry is' : `${parsed.tooLong} entries are`} longer than {HOST_MAX} characters
+                and left out.
+              </p>
+            )}
+            {parsed.extra > 0 && (
+              <p className="text-2xs text-gold">
+                Only {HOSTS_PER_START} new hosts start at a time. Start these, then paste the other {parsed.extra}.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="submit" className="btn" disabled={!fresh.length}>
+              <Play aria-hidden className="h-4 w-4" /> {fresh.length ? `Start ${fresh.length} ${runs(fresh.length)}` : `Start ${chainTitle} runs`}
+            </button>
+            {already > 0 && <span className="text-2xs text-fog-muted">{already} already linked, left out.</span>}
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
 function StepCard({
   run,
   chain,
@@ -259,6 +414,7 @@ function StepCard({
   index,
   readOnly,
   offPath = false,
+  linkedRuns,
   reveal,
   follow,
 }: {
@@ -266,6 +422,8 @@ function StepCard({
   chain: FlowChain;
   step: FlowStep;
   index: number;
+  /** Every run linked from this run, in start order. */
+  linkedRuns: Run[];
   /** Closed incident, or a step that left the path: show the record, allow no changes. */
   readOnly: boolean;
   offPath?: boolean;
@@ -296,6 +454,7 @@ function StepCard({
   const bodyId = `rb-step-${step.id}-body`;
   const hintId = `rb-step-${step.id}-hint`;
   const chosenEdge = chosen ? successors(chain, step.id).find((e) => e.target === chosen) : undefined;
+  const stepLinked = linkedRuns.filter((c) => linkOf(c)?.stepId === step.id);
 
   const start = (verb: 'started' | 'reopened') => {
     store().setStepStatus(run.id, step.id, 'active');
@@ -344,6 +503,11 @@ function StepCard({
                 {decision && (
                   <span className="inline-flex items-center gap-1 rounded border border-mauve/40 bg-mauve/10 px-1.5 py-px font-mono text-2xs text-mauve">
                     <GitBranch aria-hidden className="h-3 w-3" /> Decision
+                  </span>
+                )}
+                {stepLinked.length > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded border border-rose/40 bg-rose/10 px-1.5 py-px font-mono text-2xs text-rose">
+                    <Link2 aria-hidden className="h-3 w-3" /> {stepLinked.length} linked
                   </span>
                 )}
               </span>
@@ -405,6 +569,8 @@ function StepCard({
                     {step.actions.map((a, i) => {
                       const id = `rb-${step.id}-a${i}`;
                       const on = rec.actions[i] ?? false;
+                      // Unticking would let a branch change reset the step and hide its linked runs.
+                      const locked = on && i === step.spawns?.action && stepLinked.length > 0;
                       return (
                         <li key={id}>
                           <label
@@ -416,7 +582,9 @@ function StepCard({
                               type="checkbox"
                               checked={on}
                               onChange={() => store().toggleAction(run.id, step.id, i)}
-                              className="mt-0.5 h-4 w-4 shrink-0 accent-[#f25623]"
+                              disabled={locked}
+                              aria-describedby={locked ? `${id}-lock` : undefined}
+                              className="mt-0.5 h-4 w-4 shrink-0 accent-[#f25623] disabled:opacity-60"
                             />
                             <span
                               className={`text-[13px] leading-snug ${
@@ -426,6 +594,11 @@ function StepCard({
                               {a}
                             </span>
                           </label>
+                          {locked && (
+                            <p id={`${id}-lock`} className="pl-8 text-2xs text-fog-muted">
+                              Linked runs started here, so this stays ticked.
+                            </p>
+                          )}
                         </li>
                       );
                     })}
@@ -456,6 +629,7 @@ function StepCard({
                 )}
 
                 {step.gate && <GateBlock run={run} step={step} readOnly={readOnly} follow={follow} />}
+                {step.spawns && <LinkedRunsBlock run={run} step={step} linked={stepLinked} readOnly={readOnly} follow={follow} />}
                 {decision && <BranchBlock run={run} chain={chain} step={step} follow={follow} />}
 
                 <div>
@@ -892,6 +1066,9 @@ function RunView({ run, chain, now }: { run: Run; chain: FlowChain; now: number 
   const { worked, notRun } = useMemo(() => splitNotTaken(run, path), [run, path]);
   const leftPath = useMemo(() => new Set(worked.map((s) => s.id)), [worked]);
   const withCard = useMemo(() => new Set([...path.steps, ...worked].map((s) => s.id)), [path, worked]);
+  // The whole map, then derive: a selector that builds a new array each call loops under zustand 5.
+  const runs = useRunbooks((s) => s.runs);
+  const linked = useMemo(() => childRuns(runs, run.id), [runs, run.id]);
 
   // Screen reader announcements for actions whose control goes away (Mark done, branch, close).
   const [said, setSaid] = useState('');
@@ -972,6 +1149,7 @@ function RunView({ run, chain, now }: { run: Run; chain: FlowChain; now: number 
                 index={i}
                 readOnly={closed}
                 reveal={reveal}
+                linkedRuns={linked}
                 follow={follow}
               />
             ))}
@@ -1013,6 +1191,7 @@ function RunView({ run, chain, now }: { run: Run; chain: FlowChain; now: number 
                     readOnly
                     offPath
                     reveal={reveal}
+                    linkedRuns={linked}
                     follow={follow}
                   />
                 ))}
@@ -1107,5 +1286,6 @@ export default function RunbookRunView() {
       </div>
     );
   }
-  return <RunView run={run} chain={chain} now={now} />;
+  // Keyed by run: following a link to another run starts fresh (edit form, close confirmation, notices, the #rb-step reveal).
+  return <RunView key={run.id} run={run} chain={chain} now={now} />;
 }
