@@ -186,6 +186,14 @@ export interface FlowStep {
   next?: { to: string; label?: string }[];
   /** Marks a human approval gate. */
   gate?: boolean;
+  /** This step can start one linked run of another chain per subject (v1: per host). */
+  spawns?: {
+    chainId: string;
+    per: 'host';
+    label: string;
+    /** Index into the step's `actions` that starting linked runs ticks. */
+    action: number;
+  };
 }
 
 export interface FlowChain {

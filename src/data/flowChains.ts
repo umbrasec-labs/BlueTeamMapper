@@ -62,6 +62,7 @@ export const flowChains: FlowChain[] = [
         detail:
           'Execution was found on at least one endpoint. Automation pauses, the on-call analyst is paged, and a P1 incident opens with all enrichment pre-populated. Hand off to the EDR alert chain for each affected host.',
         actions: ['Page on-call analyst', 'Create P1 with enrichment attached', 'Start EDR triage on affected hosts'],
+        spawns: { chainId: 'edr-alert', per: 'host', label: 'Start EDR triage on affected hosts', action: 2 },
         pitfall: 'Blocking the sender before scoping can tip off an attacker who already has a foothold.',
         next: [{ to: 'block', label: 'Analyst approves' }],
       },
@@ -555,6 +556,28 @@ export const flowChainById: Record<string, FlowChain> = Object.assign(
   Object.create(null),
   Object.fromEntries(flowChains.map((c) => [c.id, c])),
 );
+
+/** What is wrong with the chains' spawn points: an unknown chain, or an action index out of range. */
+export function spawnProblems(chains: FlowChain[]): string[] {
+  const ids = new Set(chains.map((c) => c.id));
+  const problems: string[] = [];
+  for (const c of chains) {
+    for (const s of c.steps) {
+      if (!s.spawns) continue;
+      if (!ids.has(s.spawns.chainId)) problems.push(`${c.id}/${s.id} spawns unknown chain "${s.spawns.chainId}"`);
+      if (!Number.isInteger(s.spawns.action) || s.spawns.action < 0 || s.spawns.action >= s.actions.length) {
+        problems.push(`${c.id}/${s.id} spawns.action ${s.spawns.action} is not an index into its ${s.actions.length} actions`);
+      }
+    }
+  }
+  return problems;
+}
+
+// Dev and tests: fail loudly on a bad spawn point. CI runs the same check in src/lib/chainData.test.ts.
+if (import.meta.env.DEV) {
+  const problems = spawnProblems(flowChains);
+  if (problems.length) throw new Error(`Bad spawn points in flowChains.ts:\n${problems.join('\n')}`);
+}
 
 /** Chains that pass through a given phase. */
 export function chainsForPhase(phaseId: string): FlowChain[] {
