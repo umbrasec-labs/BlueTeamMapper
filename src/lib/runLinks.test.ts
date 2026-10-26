@@ -4,6 +4,7 @@ import { childRuns, HOSTS_PER_START, type Run } from './runbook';
 import {
   assignImportIds,
   buildLinkedRuns,
+  childrenLeavingPath,
   closeRunIn,
   deleteRunIn,
   freeId,
@@ -239,5 +240,15 @@ describe('assignImportIds', () => {
       { id: 'free0003', reason: 'duplicate' },
       { id: 'next0002', reason: 'kept' },
     ]);
+  });
+});
+
+describe('childrenLeavingPath', () => {
+  const tree = start({ parent01: parentRun() }, ['WS-0142', 'WS-0187'])!.runs;
+  const kids = childRuns(tree, 'parent01');
+
+  it('counts the linked runs whose step leaves the path on the other branch', () => {
+    expect(childrenLeavingPath(phishing, { triage: 'escalate' }, 'triage', 'block', kids)).toHaveLength(2);
+    expect(childrenLeavingPath(phishing, { triage: 'escalate' }, 'triage', 'escalate', kids)).toHaveLength(0);
   });
 });

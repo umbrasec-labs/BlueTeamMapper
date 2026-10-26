@@ -28,6 +28,8 @@ import { flowChainById, type FlowChain, type FlowStep, type Severity } from '@/d
 import { useRunbooks, type LogKind, type Run } from '@/store/runbooks';
 import {
   childRuns,
+  childSummary,
+  closeWarning,
   formatDuration,
   HOST_MAX,
   hostOf,
@@ -50,7 +52,16 @@ import {
   successors,
   type RunProgress,
 } from '@/lib/runbook';
-import { copyText, downloadRunJson, downloadText, runFileName, runToMarkdown } from '@/lib/runbookExport';
+import {
+  copyText,
+  downloadIncidentJson,
+  downloadRunJson,
+  downloadText,
+  incidentToMarkdown,
+  runFileName,
+  runToMarkdown,
+} from '@/lib/runbookExport';
+import { childrenLeavingPath } from '@/lib/runLinks';
 import { evidenceLink } from '@/lib/evidence';
 import { useNow } from '@/lib/useNow';
 import { hueClass, severityMeta } from '@/lib/hues';
@@ -214,7 +225,20 @@ function GateBlock({ run, step, readOnly, follow }: { run: Run; step: FlowStep; 
   );
 }
 
-function BranchBlock({ run, chain, step, follow }: { run: Run; chain: FlowChain; step: FlowStep; follow: FollowUp }) {
+function BranchBlock({
+  run,
+  chain,
+  step,
+  linkedRuns,
+  follow,
+}: {
+  run: Run;
+  chain: FlowChain;
+  step: FlowStep;
+  /** Every run linked from this run. */
+  linkedRuns: Run[];
+  follow: FollowUp;
+}) {
   const chosen = run.choices[step.id];
   const byId = Object.fromEntries(chain.steps.map((s) => [s.id, s]));
   return (
@@ -224,14 +248,32 @@ function BranchBlock({ run, chain, step, follow }: { run: Run; chain: FlowChain;
         {successors(chain, step.id).map((e, i) => {
           const on = chosen === e.target;
           const label = e.label ?? byId[e.target].label;
+          // Linked runs whose step this branch takes off the path. The open ones keep running; say so before the click.
+          const leavingRuns = on ? [] : childrenLeavingPath(chain, run.choices, step.id, e.target, linkedRuns);
+          const leaving = leavingRuns.length;
+          const stillOpen = leavingRuns.filter((c) => c.status === 'active').length;
+          const warnId = `${ids.branch(step.id, i)}-warn`;
+          const moved = leaving === 1 ? '1 linked run is now' : `${leaving} linked runs are now`;
+          const keepRunning =
+            stillOpen === 0
+              ? ''
+              : stillOpen === leaving
+                ? ` ${leaving === 1 ? 'It keeps' : 'They keep'} running.`
+                : ` ${stillOpen === 1 ? 'The open one keeps' : `The ${stillOpen} open ones keep`} running.`;
           return (
             <button
               key={e.id}
               id={ids.branch(step.id, i)}
               type="button"
               aria-pressed={on}
+              aria-describedby={leaving ? warnId : undefined}
               onClick={() => {
-                if (!on) follow.step(step, () => store().chooseBranch(run.id, step.id, e.target), `Took “${label}” at ${step.label}`);
+                if (!on)
+                  follow.step(
+                    step,
+                    () => store().chooseBranch(run.id, step.id, e.target),
+                    `Took “${label}” at ${step.label}${leaving ? `. ${moved} under Left the path` : ''}`,
+                  );
               }}
               className={`flex min-w-0 items-start gap-2 rounded-lg border px-3 py-2 text-left text-[13px] transition disabled:cursor-default ${
                 on
@@ -252,6 +294,12 @@ function BranchBlock({ run, chain, step, follow }: { run: Run; chain: FlowChain;
                   → {byId[e.target].label}
                   {chosen && !on && ' · Not taken'}
                 </span>
+                {leaving > 0 && (
+                  <span id={warnId} className="mt-1 block text-2xs text-gold">
+                    {leaving === 1 ? '1 linked run was' : `${leaving} linked runs were`} started from a step that leaves the
+                    path on this branch.{keepRunning}
+                  </span>
+                )}
               </span>
             </button>
           );
@@ -630,7 +678,7 @@ function StepCard({
 
                 {step.gate && <GateBlock run={run} step={step} readOnly={readOnly} follow={follow} />}
                 {step.spawns && <LinkedRunsBlock run={run} step={step} linked={stepLinked} readOnly={readOnly} follow={follow} />}
-                {decision && <BranchBlock run={run} chain={chain} step={step} follow={follow} />}
+                {decision && <BranchBlock run={run} chain={chain} step={step} linkedRuns={linkedRuns} follow={follow} />}
 
                 <div>
                   <label htmlFor={`rb-${step.id}-notes`} className="eyebrow mb-1.5 block">
@@ -874,12 +922,18 @@ function RunHeader({
   chain,
   progress,
   now,
+  runs,
+  linked,
   follow,
 }: {
   run: Run;
   chain: FlowChain;
   progress: RunProgress;
   now: number;
+  /** Every run in this browser, for the parent link and the exports. */
+  runs: Record<string, Run>;
+  /** Runs linked from this run, in start order. */
+  linked: Run[];
   follow: FollowUp;
 }) {
   const [editing, setEditing] = useState(false);
@@ -888,9 +942,14 @@ function RunHeader({
   const closed = run.status === 'closed';
   const Icon = icons[chain.icon];
   const open = progress.total - progress.done;
+  const warning = closeWarning(open, progress.estimated, linked.filter((c) => c.status === 'active').length);
+  const link = linkOf(run);
+  const parent = link ? own(runs, link.runId) : undefined;
+  const parentStep = link ? flowChainById[link.chainId]?.steps.find((s) => s.id === link.stepId)?.label : undefined;
+  const host = hostOf(run);
 
   const close = () => {
-    if (!progress.complete && !confirmClose) {
+    if (warning && !confirmClose) {
       setConfirmClose(true);
       focusSoon('rb-close-confirm');
       return;
@@ -909,12 +968,13 @@ function RunHeader({
     setEditing(false);
     focusSoon('rb-edit');
   };
-  const copy = async () => {
-    const ok = await copyText(runToMarkdown(run, chain));
+  const copy = async (incident: boolean) => {
+    const ok = await copyText(incident ? incidentToMarkdown(run, runs) : runToMarkdown(run, chain, Date.now(), { runs }));
+    const what = incident ? `Incident Markdown copied, with ${linked.length} linked ${linked.length === 1 ? 'run' : 'runs'}.` : 'Markdown copied.';
     setNotice(
       ok
-        ? { tone: 'ok', text: 'Markdown copied. Paste it into the ticket or the RCA.' }
-        : { tone: 'error', text: 'The browser blocked the clipboard. Use Download .md instead.' },
+        ? { tone: 'ok', text: `${what} Paste it into the ticket or the RCA.` }
+        : { tone: 'error', text: `The browser blocked the clipboard. Use Download ${incident ? 'incident ' : ''}.md instead.` },
     );
   };
 
@@ -934,6 +994,26 @@ function RunHeader({
             </Link>
           </div>
           <h2 className="mt-1 font-display text-2xl font-extrabold [overflow-wrap:anywhere]">{run.title}</h2>
+          {link && (
+            <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-fog-dim">
+              <Link2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-rose" />
+              <span className="[overflow-wrap:anywhere]">
+                Linked from{' '}
+                {parent ? (
+                  <Link
+                    to={`/runbooks/${parent.id}#${ids.card(link.stepId)}`}
+                    className="text-fog-bright underline underline-offset-2 hover:text-ember"
+                  >
+                    {parent.title}
+                  </Link>
+                ) : (
+                  <span className="text-fog-bright">{link.title}</span>
+                )}
+                {parentStep && `, at ${parentStep}`}
+              </span>
+              {!parent && <span className="text-gold">· parent not in this browser</span>}
+            </p>
+          )}
           <dl className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
             <div className="flex items-center gap-1.5">
               <dt className="sr-only">Severity</dt>
@@ -945,6 +1025,12 @@ function RunHeader({
                 <RunStatusChip status={run.status} />
               </dd>
             </div>
+            {host && (
+              <div className="flex gap-1.5">
+                <dt className="text-fog-muted">Host</dt>
+                <dd className="font-mono text-fog-bright [overflow-wrap:anywhere]">{host}</dd>
+              </div>
+            )}
             <div className="flex gap-1.5">
               <dt className="text-fog-muted">Lead</dt>
               <dd className="text-fog-bright">{run.lead || 'Not set'}</dd>
@@ -975,8 +1061,7 @@ function RunHeader({
             </button>
           ) : confirmClose ? (
             <span className="flex flex-wrap items-center gap-1.5 rounded-lg border border-gold/40 bg-gold/10 px-2 py-1 text-xs text-gold">
-              {progress.estimated ? 'At least ' : ''}
-              {open} {open === 1 ? 'step is' : 'steps are'} still open. Close anyway?
+              {warning} Close anyway?
               <button
                 id="rb-close-confirm"
                 type="button"
@@ -1015,23 +1100,45 @@ function RunHeader({
           <span className="tabular">{progress.pct}%</span>
         </div>
         <RunProgressBar pct={progress.pct} closed={closed} label={`${progressCount(progress)} steps done`} />
+        {linked.length > 0 && (
+          <p className="mt-2 flex items-center gap-1.5 text-2xs text-fog-muted">
+            <Link2 aria-hidden className="h-3 w-3 shrink-0 text-rose" /> {childSummary(linked).text}. Their steps are not in this bar.
+          </p>
+        )}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-4">
         <span className="eyebrow mr-1">Export</span>
-        <button type="button" className="btn" onClick={copy}>
+        <button type="button" className="btn" onClick={() => copy(false)}>
           <Copy aria-hidden className="h-4 w-4" /> Copy Markdown
         </button>
         <button
           type="button"
           className="btn"
-          onClick={() => downloadText(runFileName(run, 'md'), runToMarkdown(run, chain), 'text/markdown')}
+          onClick={() => downloadText(runFileName(run, 'md'), runToMarkdown(run, chain, Date.now(), { runs }), 'text/markdown')}
         >
           <FileDown aria-hidden className="h-4 w-4" /> Download .md
         </button>
         <button type="button" className="btn" onClick={() => downloadRunJson(run)}>
           <FileJson aria-hidden className="h-4 w-4" /> Download JSON
         </button>
+        {linked.length > 0 && (
+          <>
+            <button type="button" className="btn" onClick={() => copy(true)}>
+              <Copy aria-hidden className="h-4 w-4" /> Copy incident Markdown
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => downloadText(runFileName(run, 'md', 'incident'), incidentToMarkdown(run, runs), 'text/markdown')}
+            >
+              <FileDown aria-hidden className="h-4 w-4" /> Download incident .md
+            </button>
+            <button type="button" className="btn" onClick={() => downloadIncidentJson(run, linked)}>
+              <FileJson aria-hidden className="h-4 w-4" /> Download incident JSON
+            </button>
+          </>
+        )}
         <span className="flex basis-full items-center gap-1.5 text-2xs text-fog-muted sm:ml-auto sm:basis-auto">
           <HardDrive aria-hidden className="h-3 w-3 shrink-0" /> Stored only in this browser. Export before you clear site data.
         </span>
@@ -1122,7 +1229,7 @@ function RunView({ run, chain, now }: { run: Run; chain: FlowChain; now: number 
         {said}
       </p>
 
-      <RunHeader run={run} chain={chain} progress={progress} now={now} follow={follow} />
+      <RunHeader run={run} chain={chain} progress={progress} now={now} runs={runs} linked={linked} follow={follow} />
 
       {closed && run.closedAt && (
         <p className="mb-5 flex items-start gap-2 rounded-lg border border-sage/40 bg-sage/10 px-3 py-2 text-[13px] text-sage">
@@ -1148,8 +1255,8 @@ function RunView({ run, chain, now }: { run: Run; chain: FlowChain; now: number 
                 step={s}
                 index={i}
                 readOnly={closed}
-                reveal={reveal}
                 linkedRuns={linked}
+                reveal={reveal}
                 follow={follow}
               />
             ))}
@@ -1190,8 +1297,8 @@ function RunView({ run, chain, now }: { run: Run; chain: FlowChain; now: number 
                     index={chain.steps.indexOf(s)}
                     readOnly
                     offPath
-                    reveal={reveal}
                     linkedRuns={linked}
+                    reveal={reveal}
                     follow={follow}
                   />
                 ))}

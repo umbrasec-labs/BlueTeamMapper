@@ -252,3 +252,20 @@ export function assignImportIds(
   }
   return { runs: next, results };
 }
+
+/** Linked runs that would leave the path if the decision at `stepId` went to `target` instead. */
+export function childrenLeavingPath(
+  chain: FlowChain,
+  choices: Record<string, string>,
+  stepId: string,
+  target: string,
+  children: Run[],
+): Run[] {
+  const now = new Set(runPath(chain, choices).steps.map((s) => s.id));
+  const after = runPath(chain, { ...choices, [stepId]: target });
+  const stays = new Set([...after.steps, ...after.undecided].map((s) => s.id));
+  return children.filter((c) => {
+    const l = linkOf(c);
+    return !!l && now.has(l.stepId) && !stays.has(l.stepId);
+  });
+}
