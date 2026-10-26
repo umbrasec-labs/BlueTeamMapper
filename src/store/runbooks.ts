@@ -1,22 +1,26 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { flowChainById, type FlowChain, type Severity } from '@/data';
+import { flowChainById, type Severity } from '@/data';
+import { defaultRunTitle, isFinished, own, runPath, successors, type Run, type StepRecord, type StepStatus } from '@/lib/runbook';
 import {
-  defaultRunTitle,
-  isFinished,
-  newRunId,
-  own,
-  RUN_ID_RE,
-  runPath,
-  successors,
-  type LogKind,
-  type Run,
-  type StepRecord,
-  type StepStatus,
-} from '@/lib/runbook';
+  activate,
+  assignImportIds,
+  buildLinkedRuns,
+  closeRunIn,
+  deleteRunIn,
+  draft,
+  freeId,
+  newRun,
+  normalize,
+  reopenRunIn,
+  spawnTickLocked,
+  type Draft,
+  type ImportIdReason,
+} from '@/lib/runLinks';
 import { severityMeta } from '@/lib/hues';
 
-export type { LogEntry, LogKind, Run, StepRecord, StepStatus } from '@/lib/runbook';
+export type { LogEntry, LogKind, Run, RunLink, StepRecord, StepStatus } from '@/lib/runbook';
+export type { ImportIdReason } from '@/lib/runLinks';
 
 /**
  * Live IR runbook runs. Like the coverage assessment, these live only in this
@@ -28,9 +32,6 @@ export interface NewRun {
   lead?: string;
   severity?: Severity;
 }
-
-/** Why an imported run kept its ID or got a new one. */
-export type ImportIdReason = 'kept' | 'duplicate' | 'invalid';
 
 interface RunbooksState {
   runs: Record<string, Run>;
@@ -52,6 +53,13 @@ interface RunbooksState {
   deleteRun: (runId: string) => void;
   /** Adds a validated run. The id is new if the file's id is taken or not valid. */
   importRun: (run: Run) => { id: string; reason: ImportIdReason };
+  /** Adds the runs of an incident file in one write; links inside the file follow any new ids. */
+  importRuns: (runs: Run[]) => { id: string; reason: ImportIdReason }[];
+  /**
+   * One linked run per new host from a spawn step of an open run, in one write. Returns the new
+   * runs' ids; empty when nothing started (closed run, step off the path, hosts already linked).
+   */
+  startLinkedRuns: (parentId: string, stepId: string, hosts: string[]) => string[];
 }
 
 const STORE_KEY = 'btm-runbooks-v1';
@@ -124,16 +132,6 @@ function latestRuns(current: Record<string, Run>): Record<string, Run> {
   return current;
 }
 
-type Draft = { run: Run; chain: FlowChain; at: string; log: (kind: LogKind, text: string, stepId?: string) => void };
-
-function activate(d: Draft, stepId: string) {
-  const s = d.run.steps[stepId];
-  if (!s || s.status !== 'pending') return;
-  s.status = 'active';
-  s.startedAt ??= d.at;
-  d.log('step', 'Started', stepId);
-}
-
 /**
  * After a step finishes, start the next unfinished step: follow the only successor, or the
  * branch already chosen, past any steps that are already done or skipped.
@@ -187,29 +185,14 @@ function resetStranded(d: Draft, newTarget: string) {
   }
 }
 
-/** Runs outlive data edits: give every chain step a record with one flag per action. */
-function normalize(run: Run, chain: FlowChain) {
-  for (const step of chain.steps) {
-    const rec = (run.steps[step.id] ??= { status: 'pending', actions: [], notes: '' });
-    rec.actions = step.actions.map((_, i) => rec.actions[i] === true);
-  }
-}
-
 const lastNote = (run: Run, stepId: string) =>
   [...run.log].reverse().find((e) => e.kind === 'note' && e.stepId === stepId)?.text ?? '';
 
-/** A new id that no stored run uses. */
-function freeId(runs: Record<string, Run>): string {
-  let id = newRunId();
-  while (own(runs, id)) id = newRunId();
-  return id;
-}
-
 export const useRunbooks = create<RunbooksState>()(
   persist(
-    (set) => {
+    (set, get) => {
       /** Apply a change to one run. Closed runs only accept `allowClosed` changes. */
-      const mutate = (runId: string, fn: (d: Draft) => void, { allowClosed = false } = {}) =>
+      const mutate = (runId: string, fn: (d: Draft, runs: Record<string, Run>) => void, { allowClosed = false } = {}) =>
         set((state) => {
           const runs = latestRuns(state.runs);
           const current = own(runs, runId);
@@ -218,9 +201,15 @@ export const useRunbooks = create<RunbooksState>()(
           if (!current || !chain || (current.status === 'closed' && !allowClosed)) return runs === state.runs ? state : { runs };
           const run: Run = structuredClone(current);
           normalize(run, chain);
-          const at = new Date().toISOString();
-          fn({ run, chain, at, log: (kind, text, stepId) => run.log.push({ at, kind, text, ...(stepId ? { stepId } : {}) }) });
+          fn(draft(run, chain, new Date().toISOString()), runs);
           return { runs: { ...runs, [runId]: run } };
+        });
+
+      /** A write that may touch several runs. `fn` returns its input unchanged when there is nothing to do. */
+      const write = (fn: (runs: Record<string, Run>) => Record<string, Run>) =>
+        set((state) => {
+          const next = fn(latestRuns(state.runs));
+          return next === state.runs ? state : { runs: next };
         });
 
       return {
@@ -233,28 +222,11 @@ export const useRunbooks = create<RunbooksState>()(
           set((state) => {
             const runs = latestRuns(state.runs);
             const newId = freeId(runs);
-            const at = new Date().toISOString();
-            const steps: Record<string, StepRecord> = Object.fromEntries(
-              chain.steps.map((s, i) => [
-                s.id,
-                { status: i === 0 ? 'active' : 'pending', ...(i === 0 ? { startedAt: at } : {}), actions: s.actions.map(() => false), notes: '' },
-              ]),
-            );
-            const run: Run = {
-              id: newId,
-              chainId,
+            const run = newRun(chain, newId, new Date().toISOString(), {
               title: title?.trim() || defaultRunTitle(chain),
               lead: lead?.trim() ?? '',
               severity: severity ?? chain.severity,
-              startedAt: at,
-              status: 'active',
-              steps,
-              choices: {},
-              log: [
-                { at, kind: 'run', text: `Incident opened on the ${chain.title} runbook` },
-                { at, kind: 'step', text: 'Started', stepId: chain.steps[0].id },
-              ],
-            };
+            });
             id = newId;
             return { runs: { ...runs, [newId]: run } };
           });
@@ -284,10 +256,13 @@ export const useRunbooks = create<RunbooksState>()(
           }),
 
         toggleAction: (runId, stepId, index) =>
-          mutate(runId, (d) => {
+          mutate(runId, (d, runs) => {
             const s = d.run.steps[stepId];
-            const text = d.chain.steps.find((x) => x.id === stepId)?.actions[index];
+            const step = d.chain.steps.find((x) => x.id === stepId);
+            const text = step?.actions[index];
             if (!s || text === undefined) return;
+            // The tick records that linked runs started here; it keeps the step through a branch change.
+            if (s.actions[index] && step && spawnTickLocked(runs, runId, step, index)) return;
             activate(d, stepId);
             s.actions[index] = !s.actions[index];
             d.log('action', `${s.actions[index] ? 'Checked' : 'Unchecked'}: ${text}`, stepId);
@@ -361,43 +336,32 @@ export const useRunbooks = create<RunbooksState>()(
             }
           }),
 
-        closeRun: (runId) =>
-          mutate(runId, (d) => {
-            d.run.status = 'closed';
-            d.run.closedAt = d.at;
-            d.log('run', 'Incident closed');
-          }),
+        closeRun: (runId) => write((runs) => closeRunIn(runs, flowChainById, runId, new Date().toISOString())),
 
-        reopenRun: (runId) =>
-          mutate(
-            runId,
-            (d) => {
-              if (d.run.status !== 'closed') return;
-              d.run.status = 'active';
-              delete d.run.closedAt;
-              d.log('run', 'Incident reopened');
-            },
-            { allowClosed: true },
-          ),
+        reopenRun: (runId) => write((runs) => reopenRunIn(runs, flowChainById, runId, new Date().toISOString())),
 
-        deleteRun: (runId) =>
-          set((state) => {
-            const runs = { ...latestRuns(state.runs) };
-            delete runs[runId];
-            return { runs };
-          }),
+        deleteRun: (runId) => write((runs) => deleteRunIn(runs, flowChainById, runId, new Date().toISOString())),
 
-        importRun: (incoming) => {
-          let result: { id: string; reason: ImportIdReason } = { id: '', reason: 'kept' };
-          set((state) => {
-            const runs = latestRuns(state.runs);
-            const valid = RUN_ID_RE.test(incoming.id);
-            const taken = valid && own(runs, incoming.id) !== undefined;
-            const id = valid && !taken ? incoming.id : freeId(runs);
-            result = { id, reason: !valid ? 'invalid' : taken ? 'duplicate' : 'kept' };
-            return { runs: { ...runs, [id]: { ...incoming, id } } };
+        importRun: (incoming) => get().importRuns([incoming])[0],
+
+        importRuns: (incoming) => {
+          let results: { id: string; reason: ImportIdReason }[] = [];
+          write((runs) => {
+            const out = assignImportIds(runs, incoming);
+            results = out.results;
+            return out.runs;
           });
-          return result;
+          return results;
+        },
+
+        startLinkedRuns: (parentId, stepId, hosts) => {
+          let started: string[] = [];
+          write((runs) => {
+            const out = buildLinkedRuns(runs, flowChainById, parentId, stepId, hosts, new Date().toISOString());
+            started = out?.started ?? [];
+            return out?.runs ?? runs;
+          });
+          return started;
         },
       };
     },

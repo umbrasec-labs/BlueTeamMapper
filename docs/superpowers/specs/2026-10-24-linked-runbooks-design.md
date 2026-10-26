@@ -242,3 +242,16 @@ parent)` giving "EDR Alert on WS-0142 (Phishing incident 24 Oct 2026)".
   child open and check that the child still shows under "Open incidents", export and re-import the incident JSON in a fresh profile, and load a
   `btm-runbooks-v1` value saved by the current release to prove no migration
   is needed. Check at phone width as well as desktop.
+
+## Addendum (2026-10-27): two guards approved
+
+The implementation plan (`docs/superpowers/plans/2026-10-27-linked-runbooks.md`)
+adds two guards this spec did not decide. The user approved both on 2026-10-27.
+
+1. **The spawn action stays ticked while linked runs exist.** The "Start EDR
+   triage" action cannot be unticked while the step has linked runs, so a later
+   branch change cannot reset the step to pending and hide its linked runs.
+   This protects the rule that a step with linked runs has a record.
+2. **At most 50 new hosts per start.** One click starts the first 50 new hosts;
+   hosts past the cap are counted and shown so the analyst can paste them next.
+   This keeps a pasted asset export from creating hundreds of runs at once.

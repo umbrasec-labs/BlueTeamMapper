@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
@@ -94,6 +95,10 @@ export default defineConfig({
         },
       },
     },
+  },
+  test: {
+    include: ['src/lib/**/*.test.ts'],
+    environment: 'node',
   },
   esbuild: {
     // Keep production bundles free of stray debug output.

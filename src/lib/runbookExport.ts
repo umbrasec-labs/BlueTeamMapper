@@ -1,12 +1,21 @@
 import { flowChainById, type FlowChain, type FlowStep } from '@/data';
 import {
+  childRuns,
   formatDuration,
+  hostOf,
+  isHostSubject,
+  isRunLink,
   isoUtc,
+  kindLabel,
   localDateTime,
+  linkOf,
   logText,
   logKindLabel,
+  own,
+  progressCount,
   runElapsed,
   runPath,
+  runProgress,
   severities,
   splitNotTaken,
   stepRecord,
@@ -20,6 +29,7 @@ import {
   type StepStatus,
 } from './runbook';
 import { severityMeta } from './hues';
+import { linkName } from './runLinks';
 
 /**
  * Runbook exports: a Markdown timeline for the ticket or RCA, and a JSON copy of the
@@ -27,14 +37,26 @@ import { severityMeta } from './hues';
  */
 
 export const RUNBOOK_FORMAT = 'blue-team-mapper/runbook';
+/** One incident: a run and the runs linked from it. */
+export const RUNBOOK_TREE_FORMAT = 'blue-team-mapper/runbook-tree';
 
 /** Keep table cells on one line and stop user text from breaking the table. */
 const cell = (s: string) => s.replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
 const oneLine = (s: string) => s.replace(/\s*\r?\n\s*/g, ' ').trim();
 const when = (iso: string) => `${isoUtc(iso)} (${localDateTime(iso)} ${timeZoneName()})`;
 
-export function runToMarkdown(run: Run, chain: FlowChain, now = Date.now()): string {
+export interface MarkdownOptions {
+  /** All runs in this browser. With it, a parent lists its linked runs. */
+  runs?: Record<string, Run>;
+  /** The "Exported from" line. Off for runs inside an incident document, which ends with one. */
+  footer?: boolean;
+}
+
+const runStatusText = (r: Run) => (r.status === 'closed' ? 'Closed' : 'Open');
+
+export function runToMarkdown(run: Run, chain: FlowChain, now = Date.now(), { runs, footer = true }: MarkdownOptions = {}): string {
   const path = runPath(chain, run.choices);
+  const kids = runs ? childRuns(runs, run.id) : [];
   const label = Object.fromEntries(chain.steps.map((s) => [s.id, s.label]));
   const duration = formatDuration(runElapsed(run, now));
   const out: string[] = [];
@@ -48,11 +70,18 @@ export function runToMarkdown(run: Run, chain: FlowChain, now = Date.now()): str
   out.push(`| Started | ${cell(when(run.startedAt))} |`);
   out.push(`| Closed | ${run.closedAt ? cell(when(run.closedAt)) : 'Still open'} |`);
   out.push(`| Duration | ${duration}${run.closedAt ? '' : ' so far'} |`);
+  const link = linkOf(run);
+  if (link) {
+    const at = flowChainById[link.chainId]?.steps.find((s) => s.id === link.stepId)?.label;
+    out.push(`| Linked from | ${cell(oneLine(link.title))} (\`${cell(link.runId)}\`)${at ? `, at ${cell(at)}` : ''} |`);
+  }
+  const host = hostOf(run);
+  if (host) out.push(`| Host | ${cell(host)} |`);
   out.push(`| Run ID | \`${run.id}\` |`, '');
 
   out.push('## Timeline', '', '| Time (UTC) | Step | Event |', '| --- | --- | --- |');
   for (const e of run.log) {
-    out.push(`| ${isoUtc(e.at)} | ${cell(e.stepId ? label[e.stepId] ?? e.stepId : logKindLabel[e.kind])} | ${cell(logText(e))} |`);
+    out.push(`| ${isoUtc(e.at)} | ${cell(e.stepId ? own(label, e.stepId) ?? String(e.stepId) : kindLabel(e.kind))} | ${cell(logText(e))} |`);
   }
   out.push('');
 
@@ -76,6 +105,10 @@ export function runToMarkdown(run: Run, chain: FlowChain, now = Date.now()): str
     out.push(...facts, '', 'Actions:', '');
     step.actions.forEach((a, j) => out.push(`- [${rec.actions[j] ? 'x' : ' '}] ${a}`));
     out.push('');
+    const linked = kids.filter((c) => linkOf(c)?.stepId === step.id);
+    if (linked.length) {
+      out.push('Linked runs:', '', ...linked.map((c) => `- ${oneLine(linkName(c, flowChainById))} (\`${c.id}\`, ${runStatusText(c)})`), '');
+    }
     if (rec.notes.trim()) {
       out.push('Notes:', '', ...rec.notes.trim().split(/\r?\n/).map((l) => `> ${l}`), '');
     }
@@ -83,6 +116,19 @@ export function runToMarkdown(run: Run, chain: FlowChain, now = Date.now()): str
 
   out.push('## Steps on the path taken', '');
   path.steps.forEach((step, i) => stepBlock(step, `${i + 1}. ${step.label}`));
+
+  if (kids.length) {
+    out.push('## Linked runs', '', '| Host | Chain | Run ID | Status | Progress | Current step |', '| --- | --- | --- | --- | --- | --- |');
+    for (const c of kids) {
+      const cc = flowChainById[c.chainId];
+      const p = cc && runProgress(c, cc);
+      const current = c.status === 'closed' ? 'None' : (p?.current?.label ?? 'None');
+      out.push(
+        `| ${cell(hostOf(c) ?? oneLine(c.title))} | ${cell(cc?.title ?? c.chainId)} | \`${c.id}\` | ${runStatusText(c)} | ${p ? progressCount(p) : 'Unknown chain'} | ${cell(current)} |`,
+      );
+    }
+    out.push('');
+  }
 
   if (worked.length) {
     out.push(
@@ -107,12 +153,43 @@ export function runToMarkdown(run: Run, chain: FlowChain, now = Date.now()): str
   if (notRun.length) out.push('', `Steps not run: ${notRun.map((s) => s.label).join(', ')}.`);
   out.push('');
 
-  out.push('---', '', `Exported from Blue Team Mapper on ${isoUtc(new Date(now).toISOString())}.`, '');
+  if (footer) out.push(...exportFooter(now));
+  return out.join('\n');
+}
+
+const exportFooter = (now: number) => ['---', '', `Exported from Blue Team Mapper on ${isoUtc(new Date(now).toISOString())}.`, ''];
+
+/** Push every heading down one level. Only headings start with "#": user text sits in tables, lists and quotes. */
+const demote = (md: string) => md.replace(/^#/gm, '##');
+
+/** A parent run and its linked runs as one document, children in start order. */
+export function incidentToMarkdown(root: Run, runs: Record<string, Run>, now = Date.now()): string {
+  const chain = flowChainById[root.chainId];
+  const kids = childRuns(runs, root.id);
+  const out = [`# Incident: ${oneLine(root.title)}`, '', `The ${chain?.title ?? root.chainId} run, then its ${kids.length} linked ${kids.length === 1 ? 'run' : 'runs'} in start order.`, ''];
+  for (const r of [root, ...kids]) {
+    const c = flowChainById[r.chainId];
+    out.push(
+      c
+        ? demote(runToMarkdown(r, c, now, { runs, footer: false }))
+        : `## ${oneLine(r.title)}\n\nThis run uses the chain "${r.chainId}", which this version of the mapper does not have. Run ID \`${r.id}\`.\n`,
+    );
+  }
+  out.push(...exportFooter(now));
   return out.join('\n');
 }
 
 export function runToJson(run: Run): string {
   return JSON.stringify({ format: RUNBOOK_FORMAT, version: 1, exportedAt: new Date().toISOString(), run }, null, 2);
+}
+
+/** "Download incident JSON": the parent first, then its linked runs. */
+export function runTreeToJson(root: Run, children: Run[]): string {
+  return JSON.stringify(
+    { format: RUNBOOK_TREE_FORMAT, version: 1, exportedAt: new Date().toISOString(), rootId: root.id, runs: [root, ...children] },
+    null,
+    2,
+  );
 }
 
 const slug = (s: string) =>
@@ -122,7 +199,8 @@ const slug = (s: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 48) || 'incident';
 
-export const runFileName = (run: Run, ext: 'md' | 'json') => `runbook-${slug(run.title)}-${run.startedAt.slice(0, 10)}.${ext}`;
+export const runFileName = (run: Run, ext: 'md' | 'json', kind: 'runbook' | 'incident' = 'runbook') =>
+  `${kind}-${slug(run.title)}-${run.startedAt.slice(0, 10)}.${ext}`;
 
 /** Save text as a file (works on the deployed site; browsers handle the download). */
 export function downloadText(fileName: string, text: string, type: string) {
@@ -139,6 +217,10 @@ export function downloadText(fileName: string, text: string, type: string) {
 
 /** "Download JSON": a copy of the run that the runbooks page can import again. */
 export const downloadRunJson = (run: Run) => downloadText(runFileName(run, 'json'), runToJson(run), 'application/json');
+
+/** "Download incident JSON": a parent and its linked runs, for import in one go. */
+export const downloadIncidentJson = (root: Run, children: Run[]) =>
+  downloadText(runFileName(root, 'json', 'incident'), runTreeToJson(root, children), 'application/json');
 
 /** Clipboard API first; a hidden textarea and execCommand where it is blocked. */
 export async function copyText(text: string): Promise<boolean> {
@@ -179,18 +261,43 @@ const validIso = (v: unknown): string | undefined => {
 const statuses: StepStatus[] = ['pending', 'active', 'done', 'skipped'];
 const kinds = Object.keys(logKindLabel) as LogKind[];
 
+function readJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('That file is not valid JSON. Use a file saved with "Download JSON" on a runbook.');
+  }
+}
+
 /**
  * Parse a file saved with "Download JSON". Checks the shape and the chain, keeps only
  * fields this version understands, and throws an Error with a readable message otherwise.
  */
 export function parseRunJson(text: string): Run {
-  let data: unknown;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error('That file is not valid JSON. Use a file saved with "Download JSON" on a runbook.');
-  }
-  const raw = isObj(data) && isObj(data.run) ? data.run : data;
+  const data = readJson(text);
+  return parseRunObject(isObj(data) && isObj(data.run) ? data.run : data);
+}
+
+export type ImportFile = { kind: 'run'; run: Run } | { kind: 'tree'; rootId: string; runs: Run[] };
+
+/** Parse either export: one run, or an incident (a run and its linked runs). All or nothing. */
+export function parseImport(text: string): ImportFile {
+  const data = readJson(text);
+  if (!isObj(data) || data.format !== RUNBOOK_TREE_FORMAT) return { kind: 'run', run: parseRunObject(isObj(data) && isObj(data.run) ? data.run : data) };
+  if (!Array.isArray(data.runs) || data.runs.length === 0) throw new Error('That incident file has no runs in it.');
+  const list = data.runs;
+  const runs = list.map((r, i) => {
+    try {
+      return parseRunObject(r);
+    } catch (err) {
+      throw new Error(`Run ${i + 1} of ${list.length} in that incident file: ${err instanceof Error ? err.message : 'unreadable.'}`);
+    }
+  });
+  const rootId = typeof data.rootId === 'string' && runs.some((r) => r.id === data.rootId) ? data.rootId : runs[0].id;
+  return { kind: 'tree', rootId, runs };
+}
+
+function parseRunObject(raw: unknown): Run {
   if (!isObj(raw) || typeof raw.chainId !== 'string' || !isObj(raw.steps)) {
     throw new Error('That JSON is not a runbook export. It needs a chainId and steps. Use "Download JSON" on a runbook to make one.');
   }
@@ -255,6 +362,9 @@ export function parseRunJson(text: string): Run {
 
   const closed = raw.status === 'closed';
   const severity = severities.find((s) => s === raw.severity) ?? chain.severity;
+  const p = raw.parent;
+  const parent = isRunLink(p) ? { runId: p.runId, stepId: p.stepId, title: p.title, chainId: p.chainId } : undefined;
+  const subject = isHostSubject(raw.subject) ? { kind: 'host' as const, value: raw.subject.value.trim() } : undefined;
   return {
     id: str(raw.id) ?? '',
     chainId: chain.id,
@@ -267,5 +377,7 @@ export function parseRunJson(text: string): Run {
     steps,
     choices,
     log,
+    ...(parent ? { parent } : {}),
+    ...(subject ? { subject } : {}),
   };
 }
