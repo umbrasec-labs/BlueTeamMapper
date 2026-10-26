@@ -1,19 +1,8 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { flowChainById, type FlowChain, type Severity } from '@/data';
-import {
-  defaultRunTitle,
-  isFinished,
-  newRunId,
-  own,
-  RUN_ID_RE,
-  runPath,
-  successors,
-  type LogKind,
-  type Run,
-  type StepRecord,
-  type StepStatus,
-} from '@/lib/runbook';
+import { flowChainById, type Severity } from '@/data';
+import { defaultRunTitle, isFinished, own, RUN_ID_RE, runPath, successors, type Run, type StepRecord, type StepStatus } from '@/lib/runbook';
+import { activate, draft, freeId, newRun, normalize, type Draft } from '@/lib/runLinks';
 import { severityMeta } from '@/lib/hues';
 
 export type { LogEntry, LogKind, Run, StepRecord, StepStatus } from '@/lib/runbook';
@@ -124,16 +113,6 @@ function latestRuns(current: Record<string, Run>): Record<string, Run> {
   return current;
 }
 
-type Draft = { run: Run; chain: FlowChain; at: string; log: (kind: LogKind, text: string, stepId?: string) => void };
-
-function activate(d: Draft, stepId: string) {
-  const s = d.run.steps[stepId];
-  if (!s || s.status !== 'pending') return;
-  s.status = 'active';
-  s.startedAt ??= d.at;
-  d.log('step', 'Started', stepId);
-}
-
 /**
  * After a step finishes, start the next unfinished step: follow the only successor, or the
  * branch already chosen, past any steps that are already done or skipped.
@@ -187,23 +166,8 @@ function resetStranded(d: Draft, newTarget: string) {
   }
 }
 
-/** Runs outlive data edits: give every chain step a record with one flag per action. */
-function normalize(run: Run, chain: FlowChain) {
-  for (const step of chain.steps) {
-    const rec = (run.steps[step.id] ??= { status: 'pending', actions: [], notes: '' });
-    rec.actions = step.actions.map((_, i) => rec.actions[i] === true);
-  }
-}
-
 const lastNote = (run: Run, stepId: string) =>
   [...run.log].reverse().find((e) => e.kind === 'note' && e.stepId === stepId)?.text ?? '';
-
-/** A new id that no stored run uses. */
-function freeId(runs: Record<string, Run>): string {
-  let id = newRunId();
-  while (own(runs, id)) id = newRunId();
-  return id;
-}
 
 export const useRunbooks = create<RunbooksState>()(
   persist(
@@ -218,8 +182,7 @@ export const useRunbooks = create<RunbooksState>()(
           if (!current || !chain || (current.status === 'closed' && !allowClosed)) return runs === state.runs ? state : { runs };
           const run: Run = structuredClone(current);
           normalize(run, chain);
-          const at = new Date().toISOString();
-          fn({ run, chain, at, log: (kind, text, stepId) => run.log.push({ at, kind, text, ...(stepId ? { stepId } : {}) }) });
+          fn(draft(run, chain, new Date().toISOString()));
           return { runs: { ...runs, [runId]: run } };
         });
 
@@ -233,28 +196,11 @@ export const useRunbooks = create<RunbooksState>()(
           set((state) => {
             const runs = latestRuns(state.runs);
             const newId = freeId(runs);
-            const at = new Date().toISOString();
-            const steps: Record<string, StepRecord> = Object.fromEntries(
-              chain.steps.map((s, i) => [
-                s.id,
-                { status: i === 0 ? 'active' : 'pending', ...(i === 0 ? { startedAt: at } : {}), actions: s.actions.map(() => false), notes: '' },
-              ]),
-            );
-            const run: Run = {
-              id: newId,
-              chainId,
+            const run = newRun(chain, newId, new Date().toISOString(), {
               title: title?.trim() || defaultRunTitle(chain),
               lead: lead?.trim() ?? '',
               severity: severity ?? chain.severity,
-              startedAt: at,
-              status: 'active',
-              steps,
-              choices: {},
-              log: [
-                { at, kind: 'run', text: `Incident opened on the ${chain.title} runbook` },
-                { at, kind: 'step', text: 'Started', stepId: chain.steps[0].id },
-              ],
-            };
+            });
             id = newId;
             return { runs: { ...runs, [newId]: run } };
           });
