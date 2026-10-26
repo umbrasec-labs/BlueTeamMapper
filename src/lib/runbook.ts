@@ -30,6 +30,20 @@ export interface LogEntry {
   text: string;
 }
 
+/** Where a linked run came from. Snapshots, so the link still reads when the parent is gone. */
+export interface RunLink {
+  runId: string;
+  stepId: string;
+  title: string;
+  chainId: string;
+}
+
+/** What a run is about. v1 has hosts only. */
+export interface HostSubject {
+  kind: 'host';
+  value: string;
+}
+
 export interface Run {
   id: string;
   chainId: string;
@@ -43,6 +57,10 @@ export interface Run {
   /** Decision step id -> the successor the analyst picked. */
   choices: Record<string, string>;
   log: LogEntry[];
+  /** Set on a run started from another run's step. */
+  parent?: RunLink;
+  /** What this run is about, e.g. the host name. */
+  subject?: HostSubject;
 }
 
 export const severities: Severity[] = ['critical', 'high', 'medium', 'low'];
@@ -258,6 +276,109 @@ export const RUN_ID_RE = /^[a-z0-9]{4,32}$/;
 
 export function defaultRunTitle(chain: FlowChain, at = new Date()): string {
   return `${chain.title} incident ${at.toLocaleDateString(undefined, { dateStyle: 'medium' })}`;
+}
+
+/* Linked runs ------------------------------------------------------- */
+
+/** Longest host name kept (a DNS name is at most 253 characters). */
+export const HOST_MAX = 253;
+/** Most hosts one "Start" creates runs for, so a pasted asset export cannot fill storage. */
+export const HOSTS_PER_START = 50;
+
+export interface ParsedHosts {
+  /** New hosts to start, in the order typed, at most HOSTS_PER_START. */
+  hosts: string[];
+  /** Hosts in `skip` (already linked), in the order typed. They do not count toward the cap. */
+  already: string[];
+  /** Entries longer than HOST_MAX, left out. */
+  tooLong: number;
+  /** Repeats inside the text (case-insensitive), left out. */
+  dupes: number;
+  /** Further new hosts past HOSTS_PER_START, left out for a later start. */
+  extra: number;
+}
+
+/**
+ * Hosts typed or pasted one per line, or separated by commas or spaces. Duplicates match
+ * case-insensitively and keep the first spelling. `skip` holds lower-cased hosts already linked.
+ */
+export function parseHosts(text: string, skip: ReadonlySet<string> = new Set()): ParsedHosts {
+  const seen = new Set<string>();
+  const out: ParsedHosts = { hosts: [], already: [], tooLong: 0, dupes: 0, extra: 0 };
+  for (const token of text.split(/[\s,]+/)) {
+    if (!token) continue;
+    if (token.length > HOST_MAX) {
+      out.tooLong++;
+      continue;
+    }
+    const key = token.toLowerCase();
+    if (seen.has(key)) {
+      out.dupes++;
+      continue;
+    }
+    seen.add(key);
+    if (skip.has(key)) out.already.push(token);
+    else if (out.hosts.length < HOSTS_PER_START) out.hosts.push(token);
+    else out.extra++;
+  }
+  return out;
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const shortStr = (v: unknown, max: number): v is string => typeof v === 'string' && v.length > 0 && v.length <= max;
+
+/** A well-formed parent link. Runs loaded from storage skip import checks, so readers go through this. */
+export function isRunLink(v: unknown): v is RunLink {
+  return isRecord(v) && shortStr(v.runId, 64) && shortStr(v.stepId, 64) && typeof v.title === 'string' && shortStr(v.chainId, 64);
+}
+
+export function isHostSubject(v: unknown): v is HostSubject {
+  return isRecord(v) && v.kind === 'host' && typeof v.value === 'string' && !!v.value.trim() && v.value.trim().length <= HOST_MAX;
+}
+
+export const linkOf = (run: Run): RunLink | undefined => (isRunLink(run.parent) ? run.parent : undefined);
+export const hostOf = (run: Run): string | undefined => (isHostSubject(run.subject) ? run.subject.value.trim() : undefined);
+
+/** Oldest first. Runs started together get start times a millisecond apart; the id breaks any other tie. */
+export const byStart = (a: Run, b: Run) =>
+  a.startedAt < b.startedAt ? -1 : a.startedAt > b.startedAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+
+/** Runs linked from run `id` (from one of its steps if `stepId` is given), in start order. */
+export function childRuns(runs: Record<string, Run>, id: string, stepId?: string): Run[] {
+  return Object.values(runs)
+    .filter((r) => {
+      const l = linkOf(r);
+      return !!l && l.runId === id && r.id !== id && (!stepId || l.stepId === stepId);
+    })
+    .sort(byStart);
+}
+
+export interface ChildSummary {
+  total: number;
+  open: number;
+  closed: number;
+  /** "3 linked runs, 1 open". */
+  text: string;
+}
+
+export function childSummary(children: Run[]): ChildSummary {
+  const open = children.filter((c) => c.status === 'active').length;
+  const total = children.length;
+  return { total, open, closed: total - open, text: `${total} linked ${total === 1 ? 'run' : 'runs'}, ${open} open` };
+}
+
+/** "EDR Alert on WS-0142 (Phishing incident 24 Oct 2026)". */
+export const defaultChildTitle = (chain: FlowChain, host: string, parent: Run) => `${chain.title} on ${host} (${parent.title})`;
+
+/** How the close confirmation counts what is still open; empty when nothing is. */
+export function closeWarning(openSteps: number, estimated: boolean, openChildren: number): string {
+  const atLeast = estimated ? 'At least ' : '';
+  const steps = (n: number) => `${n} ${n === 1 ? 'step' : 'steps'}`;
+  const kids = (n: number) => `${n} linked ${n === 1 ? 'run' : 'runs'}`;
+  if (openSteps > 0 && openChildren > 0) return `${atLeast}${steps(openSteps)} and ${kids(openChildren)} are still open.`;
+  if (openSteps > 0) return `${atLeast}${steps(openSteps)} ${openSteps === 1 ? 'is' : 'are'} still open.`;
+  if (openChildren > 0) return `${kids(openChildren)} ${openChildren === 1 ? 'is' : 'are'} still open.`;
+  return '';
 }
 
 /** "<1m", "12m", "1h 05m", "2d 3h". */
