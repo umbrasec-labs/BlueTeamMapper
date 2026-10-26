@@ -2,7 +2,19 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { flowChainById, type Severity } from '@/data';
 import { defaultRunTitle, isFinished, own, RUN_ID_RE, runPath, successors, type Run, type StepRecord, type StepStatus } from '@/lib/runbook';
-import { activate, buildLinkedRuns, draft, freeId, newRun, normalize, spawnTickLocked, type Draft } from '@/lib/runLinks';
+import {
+  activate,
+  buildLinkedRuns,
+  closeRunIn,
+  deleteRunIn,
+  draft,
+  freeId,
+  newRun,
+  normalize,
+  reopenRunIn,
+  spawnTickLocked,
+  type Draft,
+} from '@/lib/runLinks';
 import { severityMeta } from '@/lib/hues';
 
 export type { LogEntry, LogKind, Run, RunLink, StepRecord, StepStatus } from '@/lib/runbook';
@@ -322,31 +334,11 @@ export const useRunbooks = create<RunbooksState>()(
             }
           }),
 
-        closeRun: (runId) =>
-          mutate(runId, (d) => {
-            d.run.status = 'closed';
-            d.run.closedAt = d.at;
-            d.log('run', 'Incident closed');
-          }),
+        closeRun: (runId) => write((runs) => closeRunIn(runs, flowChainById, runId, new Date().toISOString())),
 
-        reopenRun: (runId) =>
-          mutate(
-            runId,
-            (d) => {
-              if (d.run.status !== 'closed') return;
-              d.run.status = 'active';
-              delete d.run.closedAt;
-              d.log('run', 'Incident reopened');
-            },
-            { allowClosed: true },
-          ),
+        reopenRun: (runId) => write((runs) => reopenRunIn(runs, flowChainById, runId, new Date().toISOString())),
 
-        deleteRun: (runId) =>
-          set((state) => {
-            const runs = { ...latestRuns(state.runs) };
-            delete runs[runId];
-            return { runs };
-          }),
+        deleteRun: (runId) => write((runs) => deleteRunIn(runs, flowChainById, runId, new Date().toISOString())),
 
         importRun: (incoming) => {
           let result: { id: string; reason: ImportIdReason } = { id: '', reason: 'kept' };

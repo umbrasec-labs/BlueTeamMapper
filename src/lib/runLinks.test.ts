@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { flowChainById } from '@/data/flowChains';
 import { childRuns, HOSTS_PER_START, type Run } from './runbook';
-import { buildLinkedRuns, freeId, newRun, spawnTickLocked } from './runLinks';
+import { buildLinkedRuns, closeRunIn, deleteRunIn, freeId, newRun, reopenRunIn, spawnTickLocked } from './runLinks';
 import { fixtureRun, ids } from './__fixtures__/runs';
 
 const chains = flowChainById;
 const phishing = chains['phishing'];
 const edr = chains['edr-alert'];
 const T0 = '2026-10-24T10:00:00.000Z';
+const T1 = '2026-10-24T11:00:00.000Z';
 
 /** An open phishing run that took "Execution found", so escalate is on the path and in progress. */
 function parentRun(over: Partial<Run> = {}): Run {
@@ -124,5 +125,47 @@ describe('buildLinkedRuns', () => {
     const before = structuredClone(runs);
     start(runs, ['WS-0142']);
     expect(runs).toEqual(before);
+  });
+});
+
+describe('closeRunIn, reopenRunIn and deleteRunIn', () => {
+  const tree = () => start({ parent01: parentRun() }, ['WS-0142', 'WS-0187'])!.runs;
+  const linkTexts = (runs: Record<string, Run>) => runs.parent01.log.filter((e) => e.kind === 'link' && e.at === T1).map((e) => e.text);
+
+  it('closing a child tells the open parent, at the spawn step', () => {
+    const runs = closeRunIn(tree(), chains, 'child001', T1);
+    expect(runs.child001).toMatchObject({ status: 'closed', closedAt: T1 });
+    expect(runs.parent01.log.at(-1)).toEqual({ at: T1, kind: 'link', text: 'Linked run closed: EDR Alert on WS-0142', stepId: 'escalate' });
+  });
+
+  it('reopening and deleting a child tell the parent too', () => {
+    let runs = closeRunIn(tree(), chains, 'child001', T1);
+    runs = reopenRunIn(runs, chains, 'child001', T1);
+    runs = deleteRunIn(runs, chains, 'child002', T1);
+    expect(runs.child001.status).toBe('active');
+    expect(runs.child002).toBeUndefined();
+    expect(linkTexts(runs)).toEqual([
+      'Linked run closed: EDR Alert on WS-0142',
+      'Linked run reopened: EDR Alert on WS-0142',
+      'Linked run deleted: EDR Alert on WS-0187',
+    ]);
+  });
+
+  it('leaves a closed parent alone', () => {
+    const runs = closeRunIn(tree(), chains, 'parent01', T1);
+    const after = closeRunIn(runs, chains, 'child001', T1);
+    expect(after.parent01).toBe(runs.parent01);
+  });
+
+  it('returns the same object when there is nothing to do', () => {
+    const runs = tree();
+    expect(reopenRunIn(runs, chains, 'child001', T1)).toBe(runs);
+    expect(closeRunIn(closeRunIn(runs, chains, 'child001', T1), chains, 'child001', T1).child001.log.filter((e) => e.text === 'Incident closed')).toHaveLength(1);
+    expect(deleteRunIn(runs, chains, 'missing1', T1)).toBe(runs);
+  });
+
+  it('deleting a parent keeps its children', () => {
+    const runs = deleteRunIn(tree(), chains, 'parent01', T1);
+    expect(Object.keys(runs).sort()).toEqual(['child001', 'child002']);
   });
 });

@@ -5,6 +5,7 @@ import {
   HOST_MAX,
   HOSTS_PER_START,
   hostOf,
+  linkOf,
   newRunId,
   own,
   runPath,
@@ -162,3 +163,51 @@ export function buildLinkedRuns(
 /** The spawn action stays ticked while runs linked from the step exist: the tick keeps the step through a branch change. */
 export const spawnTickLocked = (runs: Record<string, Run>, runId: string, step: FlowStep, index: number) =>
   step.spawns?.action === index && childRuns(runs, runId, step.id).length > 0;
+
+/**
+ * Add a `link` entry about `child` to its parent: only when the parent is here, open, and has
+ * the step. The entry always carries the step id, which older releases need to render it.
+ */
+function noteParent(runs: Record<string, Run>, chains: Chains, child: Run, what: string, at: string): Record<string, Run> {
+  const link = linkOf(child);
+  const parent = link && own(runs, link.runId);
+  const chain = parent && own(chains, parent.chainId);
+  if (!link || !parent || !chain || parent.status !== 'active' || !chain.steps.some((s) => s.id === link.stepId)) return runs;
+  const p: Run = structuredClone(parent);
+  p.log.push({ at, kind: 'link', text: `${what}: ${linkName(child, chains)}`, stepId: link.stepId });
+  return { ...runs, [p.id]: p };
+}
+
+/** Close an open run; tell its parent. Unchanged (same object) when there is nothing to do. */
+export function closeRunIn(runs: Record<string, Run>, chains: Chains, runId: string, at: string): Record<string, Run> {
+  const cur = own(runs, runId);
+  const chain = cur && own(chains, cur.chainId);
+  if (!cur || !chain || cur.status === 'closed') return runs;
+  const run: Run = structuredClone(cur);
+  normalize(run, chain);
+  run.status = 'closed';
+  run.closedAt = at;
+  draft(run, chain, at).log('run', 'Incident closed');
+  return noteParent({ ...runs, [runId]: run }, chains, run, 'Linked run closed', at);
+}
+
+export function reopenRunIn(runs: Record<string, Run>, chains: Chains, runId: string, at: string): Record<string, Run> {
+  const cur = own(runs, runId);
+  const chain = cur && own(chains, cur.chainId);
+  if (!cur || !chain || cur.status !== 'closed') return runs;
+  const run: Run = structuredClone(cur);
+  normalize(run, chain);
+  run.status = 'active';
+  delete run.closedAt;
+  draft(run, chain, at).log('run', 'Incident reopened');
+  return noteParent({ ...runs, [runId]: run }, chains, run, 'Linked run reopened', at);
+}
+
+/** Delete a run. Its own linked runs stay; an open parent gets an entry. */
+export function deleteRunIn(runs: Record<string, Run>, chains: Chains, runId: string, at: string): Record<string, Run> {
+  const cur = own(runs, runId);
+  if (!cur) return runs;
+  const next = { ...runs };
+  delete next[runId];
+  return noteParent(next, chains, cur, 'Linked run deleted', at);
+}
