@@ -1,6 +1,8 @@
 import { flowChainById, type FlowChain, type FlowStep } from '@/data';
 import {
   formatDuration,
+  isHostSubject,
+  isRunLink,
   isoUtc,
   kindLabel,
   localDateTime,
@@ -29,6 +31,8 @@ import { severityMeta } from './hues';
  */
 
 export const RUNBOOK_FORMAT = 'blue-team-mapper/runbook';
+/** One incident: a run and the runs linked from it. */
+export const RUNBOOK_TREE_FORMAT = 'blue-team-mapper/runbook-tree';
 
 /** Keep table cells on one line and stop user text from breaking the table. */
 const cell = (s: string) => s.replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
@@ -117,6 +121,15 @@ export function runToJson(run: Run): string {
   return JSON.stringify({ format: RUNBOOK_FORMAT, version: 1, exportedAt: new Date().toISOString(), run }, null, 2);
 }
 
+/** "Download incident JSON": the parent first, then its linked runs. */
+export function runTreeToJson(root: Run, children: Run[]): string {
+  return JSON.stringify(
+    { format: RUNBOOK_TREE_FORMAT, version: 1, exportedAt: new Date().toISOString(), rootId: root.id, runs: [root, ...children] },
+    null,
+    2,
+  );
+}
+
 const slug = (s: string) =>
   s
     .toLowerCase()
@@ -124,7 +137,8 @@ const slug = (s: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 48) || 'incident';
 
-export const runFileName = (run: Run, ext: 'md' | 'json') => `runbook-${slug(run.title)}-${run.startedAt.slice(0, 10)}.${ext}`;
+export const runFileName = (run: Run, ext: 'md' | 'json', kind: 'runbook' | 'incident' = 'runbook') =>
+  `${kind}-${slug(run.title)}-${run.startedAt.slice(0, 10)}.${ext}`;
 
 /** Save text as a file (works on the deployed site; browsers handle the download). */
 export function downloadText(fileName: string, text: string, type: string) {
@@ -141,6 +155,10 @@ export function downloadText(fileName: string, text: string, type: string) {
 
 /** "Download JSON": a copy of the run that the runbooks page can import again. */
 export const downloadRunJson = (run: Run) => downloadText(runFileName(run, 'json'), runToJson(run), 'application/json');
+
+/** "Download incident JSON": a parent and its linked runs, for import in one go. */
+export const downloadIncidentJson = (root: Run, children: Run[]) =>
+  downloadText(runFileName(root, 'json', 'incident'), runTreeToJson(root, children), 'application/json');
 
 /** Clipboard API first; a hidden textarea and execCommand where it is blocked. */
 export async function copyText(text: string): Promise<boolean> {
@@ -181,18 +199,43 @@ const validIso = (v: unknown): string | undefined => {
 const statuses: StepStatus[] = ['pending', 'active', 'done', 'skipped'];
 const kinds = Object.keys(logKindLabel) as LogKind[];
 
+function readJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('That file is not valid JSON. Use a file saved with "Download JSON" on a runbook.');
+  }
+}
+
 /**
  * Parse a file saved with "Download JSON". Checks the shape and the chain, keeps only
  * fields this version understands, and throws an Error with a readable message otherwise.
  */
 export function parseRunJson(text: string): Run {
-  let data: unknown;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error('That file is not valid JSON. Use a file saved with "Download JSON" on a runbook.');
-  }
-  const raw = isObj(data) && isObj(data.run) ? data.run : data;
+  const data = readJson(text);
+  return parseRunObject(isObj(data) && isObj(data.run) ? data.run : data);
+}
+
+export type ImportFile = { kind: 'run'; run: Run } | { kind: 'tree'; rootId: string; runs: Run[] };
+
+/** Parse either export: one run, or an incident (a run and its linked runs). All or nothing. */
+export function parseImport(text: string): ImportFile {
+  const data = readJson(text);
+  if (!isObj(data) || data.format !== RUNBOOK_TREE_FORMAT) return { kind: 'run', run: parseRunObject(isObj(data) && isObj(data.run) ? data.run : data) };
+  if (!Array.isArray(data.runs) || data.runs.length === 0) throw new Error('That incident file has no runs in it.');
+  const list = data.runs;
+  const runs = list.map((r, i) => {
+    try {
+      return parseRunObject(r);
+    } catch (err) {
+      throw new Error(`Run ${i + 1} of ${list.length} in that incident file: ${err instanceof Error ? err.message : 'unreadable.'}`);
+    }
+  });
+  const rootId = typeof data.rootId === 'string' && runs.some((r) => r.id === data.rootId) ? data.rootId : runs[0].id;
+  return { kind: 'tree', rootId, runs };
+}
+
+function parseRunObject(raw: unknown): Run {
   if (!isObj(raw) || typeof raw.chainId !== 'string' || !isObj(raw.steps)) {
     throw new Error('That JSON is not a runbook export. It needs a chainId and steps. Use "Download JSON" on a runbook to make one.');
   }
@@ -257,6 +300,9 @@ export function parseRunJson(text: string): Run {
 
   const closed = raw.status === 'closed';
   const severity = severities.find((s) => s === raw.severity) ?? chain.severity;
+  const p = raw.parent;
+  const parent = isRunLink(p) ? { runId: p.runId, stepId: p.stepId, title: p.title, chainId: p.chainId } : undefined;
+  const subject = isHostSubject(raw.subject) ? { kind: 'host' as const, value: raw.subject.value.trim() } : undefined;
   return {
     id: str(raw.id) ?? '',
     chainId: chain.id,
@@ -269,5 +315,7 @@ export function parseRunJson(text: string): Run {
     steps,
     choices,
     log,
+    ...(parent ? { parent } : {}),
+    ...(subject ? { subject } : {}),
   };
 }
