@@ -4,6 +4,7 @@ import stored from './__fixtures__/runbooks-v1.json';
 import { childRuns, HOST_MAX, type Run } from './runbook';
 import { buildLinkedRuns, newRun } from './runLinks';
 import {
+  incidentToMarkdown,
   parseImport,
   parseRunJson,
   RUNBOOK_FORMAT,
@@ -40,6 +41,13 @@ describe('runs saved by the current release', () => {
     expect('parent' in run || 'subject' in run).toBe(false);
   });
 
+  it('a stored v1 value renders with no linked-run sections', () => {
+    const md = runToMarkdown(v1Run, phishing, NOW, { runs: v1Runs });
+    expect(md).not.toContain('Linked');
+    expect(md).toContain('| Run ID | `k7m2p9qa` |');
+    expect(childRuns(v1Runs, 'k7m2p9qa')).toEqual([]);
+  });
+
   it('drops a malformed parent or subject on import', () => {
     const run = parseRunJson(exportOf({ ...v1Run, parent: { runId: 5 }, subject: { kind: 'user', value: 'x' } }));
     expect('parent' in run || 'subject' in run).toBe(false);
@@ -66,6 +74,45 @@ describe('parent and subject in single-run JSON', () => {
     const parent = tree().parent01;
     const links = parseRunJson(runToJson(parent)).log.filter((e) => e.kind === 'link');
     expect(links.map((e) => e.stepId)).toEqual(['escalate', 'escalate']);
+  });
+});
+
+describe('Markdown with linked runs', () => {
+  it('a parent lists its linked runs after the path, and on the spawn step', () => {
+    const runs = tree();
+    const md = runToMarkdown(runs.parent01, phishing, NOW, { runs });
+    expect(md).toContain('## Linked runs');
+    expect(md.indexOf('## Linked runs')).toBeGreaterThan(md.indexOf('## Steps on the path taken'));
+    expect(md).toContain('| WS-0142 | EDR Alert | `child001` | Open | 0 of at least 3 | EDR behavioral alert |');
+    expect(md).toContain('- EDR Alert on WS-0142 (`child001`, Open)');
+    expect(md).toContain('| 2026-10-24T10:00:00Z | Escalate to P1 incident | Started linked run: EDR Alert on WS-0187 |');
+  });
+
+  it('a child names its parent and host in the header', () => {
+    const runs = tree();
+    const md = runToMarkdown(runs.child001, flowChainById['edr-alert'], NOW, { runs });
+    expect(md).toContain('| Linked from | Phishing incident (`parent01`), at Escalate to P1 incident |');
+    expect(md).toContain('| Host | WS-0142 |');
+  });
+
+  it('a step that left the path keeps its linked runs', () => {
+    const runs = tree();
+    const moved = { ...runs.parent01, choices: { triage: 'block' } };
+    const md = runToMarkdown(moved, phishing, NOW, { runs: { ...runs, parent01: moved } });
+    const worked = md.slice(md.indexOf('## Steps worked before the branch changed'));
+    expect(worked).toContain('### Escalate to P1 incident (approval gate)');
+    expect(worked).toContain('- EDR Alert on WS-0187 (`child002`, Open)');
+  });
+
+  it('an incident document holds the parent then each child, one level down, one footer', () => {
+    const runs = tree();
+    const md = incidentToMarkdown(runs.parent01, runs, NOW);
+    const h2 = md.split('\n').filter((l) => /^## [^#]/.test(l));
+    expect(md.startsWith('# Incident: Phishing incident\n')).toBe(true);
+    expect(h2).toEqual(['## Phishing incident', '## EDR Alert on WS-0142 (Phishing incident)', '## EDR Alert on WS-0187 (Phishing incident)']);
+    expect(md).toContain('### Timeline');
+    expect(md).not.toMatch(/^# (?!Incident: )/m);
+    expect(md.match(/Exported from Blue Team Mapper/g)).toHaveLength(1);
   });
 });
 
