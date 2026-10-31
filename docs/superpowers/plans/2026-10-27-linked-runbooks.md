@@ -18,7 +18,7 @@
 
 ## Global Constraints
 
-- Repo: `/home/0xdev1/Documents/projects/repos/github/umbrasec-labs/BlueTeamMapper`. Prefix every shell command with `cd <repo> &&`.
+- Repo: `BlueTeamMapper` (the clone inside the umbrasec-labs workspace). Prefix every shell command with `cd <repo> &&`.
 - Branch `feat/linked-runbooks`. Each task ends with one commit.
 - Every commit keeps `npm test` and `npm run build` green.
 - Prefix every git command with `GIT_CONFIG_GLOBAL=/dev/null`, because the sandbox cannot read `~/.gitconfig`.
