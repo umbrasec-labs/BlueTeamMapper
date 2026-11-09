@@ -166,7 +166,7 @@ function commit(dir) {
 }
 
 function writeupOf(refs) {
-  return refs.find((r) => /umbrasec\.dev\/research\//.test(r)) ?? null;
+  return refs.find((r) => /^https:\/\/umbrasec\.dev\/research\//.test(r)) ?? null;
 }
 
 function sigmaRule(file) {
