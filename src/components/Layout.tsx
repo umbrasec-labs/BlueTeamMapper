@@ -33,6 +33,11 @@ export function Layout() {
   const title = titles.find(([re]) => re.test(location.pathname))?.[1] ?? 'Blue Team Mapper';
   const navigationType = useNavigationType();
 
+  // The tab, history and screen readers get the page name, not just the header.
+  useEffect(() => {
+    document.title = title === 'Blue Team Mapper' ? title : `${title} - Blue Team Mapper`;
+  }, [title]);
+
   // A link to another page opens it at the top, or at its #section. Back and Forward keep
   // the position the browser restores, and replace navigations (redirects, in-place
   // toggles) stay where they are.
